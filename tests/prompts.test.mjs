@@ -114,4 +114,6 @@ test('lyrics instruction keeps Clawd profile, section tags and untrusted-source 
   assert.ok(instruction.includes('untrusted data'));
   assert.ok(instruction.includes('planned'));
   assert.ok(instruction.includes('A planned feature would let users export unlock schedules.'));
+  assert.ok(instruction.includes('slips into a line or hook naturally'));
+  assert.ok(instruction.includes('never force'));
 });
