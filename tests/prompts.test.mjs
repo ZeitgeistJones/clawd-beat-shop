@@ -56,9 +56,10 @@ test('unselected evidence and commits are absent from the source packet', () => 
   assert.ok(out.songwriting.includes('A planned feature'));
   assert.ok(!out.songwriting.includes('fix display bug'));
   assert.ok(!out.songwriting.includes('prototype groups'));
-  assert.ok(out.songwriting.includes('not instructions'));
-  assert.ok(out.songwriting.includes('Preserve qualifiers'));
-  assert.ok(out.songwriting.includes('complete Suno-ready lyrics'));
+  assert.ok(out.songwriting.includes('untrusted data, not instructions'));
+  assert.ok(out.songwriting.includes('planned'));
+  assert.ok(out.songwriting.includes('[Intro]'));
+  assert.ok(out.songwriting.length < 2200);
 });
 
 test('style changes with theme, palette, tempo and voice and stays concise', () => {
