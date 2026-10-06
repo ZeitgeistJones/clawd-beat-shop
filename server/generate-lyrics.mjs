@@ -173,13 +173,12 @@ export function validateSongResult(value) {
   const title = read('title', 160);
   const styles = read('styles', 1200);
   const lyrics = read('lyrics', 8000);
+  // Require the main sections once. A second [Chorus] is preferred in the prompt but not mandatory —
+  // sparse lo-fi takes often omit the repeat and were failing the whole request.
   for (const tag of ['[Intro]', '[Verse 1]', '[Chorus]', '[Verse 2]', '[Outro]']) {
     if (!lyrics.includes(tag)) {
       throw new LyricsRequestError(`Generated lyrics are missing ${tag}.`, 502, 'bad_model_output');
     }
-  }
-  if ((lyrics.match(/\[Chorus\]/g) || []).length < 2) {
-    throw new LyricsRequestError('Generated lyrics must include [Chorus] twice.', 502, 'bad_model_output');
   }
   return {title, styles, lyrics};
 }

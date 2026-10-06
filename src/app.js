@@ -10,16 +10,22 @@ function outputStatus(message, error=false) {
   node.textContent = message;
   node.classList.toggle('error', error);
 }
+function generateStatus(message, error=false) {
+  $('generate-status').textContent = message;
+  $('generate-status').classList.toggle('error', error);
+}
 function currentMode() {
   return document.querySelector('input[name="mode"]:checked')?.value || 'prompt';
 }
 function resetOutput() {
+  if (generating) return;
   result=null;
   songResult=null;
   $('prompt-outputs').hidden=true;
   $('lyrics-outputs').hidden=true;
   $('output-status').textContent='';
   $('lyrics-status').textContent='';
+  generateStatus('');
 }
 function setBusy(busy) { $('load-button').disabled=busy; $('load-button').textContent=busy?'Reading…':'Read repo ↗'; }
 function cancelLoading() {controller?.abort();controller=null;setBusy(false);}
@@ -88,6 +94,7 @@ function showPromptPack(pack) {
   $('styles-output').value=pack.style;$('brief-output').value=pack.songwriting;
   $('lyrics-workflow').textContent=pack.lyrics;$('style-count').textContent=`${pack.style.length} characters · Style template; musical results may vary.`;
   $('packet-output').textContent=JSON.stringify(pack.packet,null,2);
+  generateStatus('');
   outputStatus('Prompt pack ready. No data has been sent to Suno or a writing model.');
   $('prompt-outputs').hidden=false;
   $('prompt-outputs').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
@@ -101,8 +108,23 @@ function showSongPack(song) {
   $('title-output').value = title;
   $('lyrics-styles-output').value = song.styles;
   $('lyrics-output').value = song.lyrics;
+  generateStatus('');
   outputStatus('Song pack ready. Review, copy Styles and Lyrics into Suno Custom mode.');
   $('lyrics-outputs').hidden = false;
+  $('lyrics-outputs').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+}
+function showLyricsError(message) {
+  songResult = null;
+  result = null;
+  $('prompt-outputs').hidden = true;
+  $('lyrics-song-title').textContent = current?.name || '';
+  $('title-output').value = current?.name || '';
+  $('lyrics-styles-output').value = '';
+  $('lyrics-output').value = '';
+  $('lyrics-outputs').hidden = false;
+  status(message, true);
+  generateStatus(message, true);
+  outputStatus(message, true);
   $('lyrics-outputs').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
 }
 function songPackText() {
@@ -124,9 +146,17 @@ async function generateLyrics() {
   generating = true;
   updateGenerateEnabled();
   $('generate-button').textContent = 'Generating…';
-  outputStatus('Generating lyrics with the server-side Gemini endpoint…');
-  $('lyrics-outputs').hidden = false;
   $('prompt-outputs').hidden = true;
+  $('lyrics-outputs').hidden = false;
+  $('lyrics-song-title').textContent = current.name || '';
+  $('title-output').value = current.name || '';
+  $('lyrics-styles-output').value = '';
+  $('lyrics-output').value = '';
+  const waiting = 'Generating lyrics… this can take up to about 30 seconds.';
+  generateStatus(waiting);
+  outputStatus(waiting);
+  status('Generating lyrics…');
+  $('lyrics-outputs').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
   try {
     const response = await fetch('/api/generate-lyrics', {
       method: 'POST',
@@ -147,23 +177,26 @@ async function generateLyrics() {
           excerpt: item.text,
           url: item.url || current.url
         }))
-      })
+      }),
+      signal: AbortSignal.timeout(35000)
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(payload.error || `Generation failed (${response.status}).`);
     }
-    if (!payload.title || !payload.styles || !payload.lyrics) {
-      throw new Error('Server returned an incomplete song pack.');
+    if (!payload.styles || !payload.lyrics) {
+      throw new Error('Server returned an incomplete song pack. Try Generate lyrics again.');
     }
-    showSongPack(payload);
+    showSongPack({
+      ...payload,
+      title: payload.title || current.name
+    });
+    status('Lyrics ready.');
   } catch (error) {
-    songResult = null;
-    $('lyrics-outputs').hidden = true;
-    const message = error.message || 'Could not generate lyrics.';
-    // lyrics-status lives inside the hidden song pack; surface errors in the always-visible source status too.
-    status(message, true);
-    outputStatus(message, true);
+    const message = error?.name === 'TimeoutError'
+      ? 'Lyrics generation timed out. Try again, or select fewer excerpts.'
+      : (error.message || 'Could not generate lyrics.');
+    showLyricsError(message);
   } finally {
     generating = false;
     syncModeChrome();
