@@ -84,7 +84,7 @@ function showPromptPack(pack) {
   result = pack;
   songResult = null;
   $('lyrics-outputs').hidden = true;
-  $('song-title').textContent=`${pack.title} · ${pack.theme}`;
+  $('song-title').textContent = pack.title;
   $('styles-output').value=pack.style;$('brief-output').value=pack.songwriting;
   $('lyrics-workflow').textContent=pack.lyrics;$('style-count').textContent=`${pack.style.length} characters · Style template; musical results may vary.`;
   $('packet-output').textContent=JSON.stringify(pack.packet,null,2);
@@ -96,8 +96,9 @@ function showSongPack(song) {
   songResult = song;
   result = null;
   $('prompt-outputs').hidden = true;
-  $('lyrics-song-title').textContent = `${song.title} · ${song.repository || current.fullName}`;
-  $('title-output').value = song.title;
+  const title = song.title || current?.name || '';
+  $('lyrics-song-title').textContent = title;
+  $('title-output').value = title;
   $('lyrics-styles-output').value = song.styles;
   $('lyrics-output').value = song.lyrics;
   outputStatus('Song pack ready. Review, copy Styles and Lyrics into Suno Custom mode.');

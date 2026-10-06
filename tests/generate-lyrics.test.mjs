@@ -117,7 +117,7 @@ test('successful mocked Gemini response returns validated song fields', async ()
     env: {GEMINI_API_KEY: 'test-key', GEMINI_MODEL: DEFAULT_GEMINI_MODEL},
     fetchImpl
   });
-  assert.equal(result.title, validSong.title);
+  assert.equal(result.title, 'clawd-vesting');
   assert.equal(result.styles, validSong.styles);
   assert.ok(result.lyrics.includes('[Outro]'));
   assert.ok(calledUrl.includes(`/models/${DEFAULT_GEMINI_MODEL}:generateContent`));

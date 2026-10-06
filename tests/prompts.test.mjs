@@ -64,6 +64,8 @@ test('unselected evidence and commits are absent from the source packet', () => 
 
 test('style changes with theme, palette, tempo and voice and stays concise', () => {
   const defaultOut = makePrompts(repo, options, []);
+  assert.equal(defaultOut.title, 'clawd-vesting');
+  assert.ok(defaultOut.songwriting.includes('title exactly "clawd-vesting"'));
   assert.ok(defaultOut.style.includes('74 BPM'));
   assert.ok(defaultOut.style.includes('room to vary'));
   assert.ok(defaultOut.style.includes('safe with a slow-turning clock'));

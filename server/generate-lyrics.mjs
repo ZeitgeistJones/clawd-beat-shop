@@ -261,6 +261,8 @@ export async function generateLyricsFromRequest(body, {
   });
   return {
     ...song,
+    // Song title is always the repository name, not a model-invented phrase.
+    title: repo.name,
     repository: repo.fullName,
     source: repo.source,
     revision: repo.revision
