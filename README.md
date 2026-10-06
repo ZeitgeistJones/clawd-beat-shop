@@ -22,7 +22,7 @@ Builds prompt templates locally. No API key needed.
 
 For an instrumental, copy **Suno Styles** into Suno Custom mode, enable **Instrumental**, and generate.
 
-For rap, choose a vocal option, then copy **Songwriting brief** into ChatGPT or your preferred writing model. It asks for a title, style and complete lyrics using your selected repo details. Review the lyrics, then copy the Styles and finished lyrics into their respective fields in Suno Custom mode.
+For vocals, choose sparse (mostly instrumental, few lines), soft, or spoken — none of these force a male or female singer. Copy **Songwriting brief** into a writing model, or use Generate Lyrics. Then paste Styles and lyrics into Suno Custom mode.
 
 ### Generate Lyrics
 
@@ -38,7 +38,7 @@ An editable Clawd background profile is included so the character stays concrete
 - Selected prose from the first 24,000 characters of the README, with basic Markdown cleanup, fenced code removed, and wrapped prose lines joined into complete paragraphs. Headings and separate bullet points stay distinct.
 - Up to five recent commit titles; these start unchecked because commit messages are not proof of shipped behavior. Precise numeric details, contract addresses and strong security claims also start unchecked; review them before opting in.
 - A README revision pinned to the newest returned default-branch commit when commits are available.
-- Your beat palette, 60–95 BPM tempo, vocals, story angle and creative direction.
+- Your beat palette (default: open lo-fi for more variety), 60–95 BPM tempo, vocals (default: sparse / few lines), story angle and creative direction.
 
 Automatic story angles use the repository name, description and topics: time locks become imagery about patience and clocks; liquidity becomes flowing pools; history becomes notebooks and receipts; wallets become keys and doors. These are creative metaphors, not verification of code behavior. You can override the angle.
 

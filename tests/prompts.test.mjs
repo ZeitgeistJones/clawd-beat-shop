@@ -21,7 +21,7 @@ const repo = {
   source: 'github',
   revision: 'abc'
 };
-const options = {voice: 'male', vibe: 'dusty', theme: 'auto', bpm: 74, direction: 'quiet confidence'};
+const options = {voice: 'soft', vibe: 'open', theme: 'auto', bpm: 74, direction: 'quiet confidence'};
 
 test('README extractor keeps qualifiers and drops fenced commands, duplicates, and markup', () => {
   const text = '# Demo\n```js\nThis code line should not become a factual excerpt in a song.\n```\n![badge](https://example.com/a.svg)\n<!-- hidden information should not be included in the output -->\n- A planned feature would add an export button to the notebook.\n- A planned feature would add an export button to the notebook.\nThe [notebook](https://example.com) keeps dated entries together.\n';
@@ -65,8 +65,14 @@ test('unselected evidence and commits are absent from the source packet', () => 
 test('style changes with theme, palette, tempo and voice and stays concise', () => {
   const defaultOut = makePrompts(repo, options, []);
   assert.ok(defaultOut.style.includes('74 BPM'));
+  assert.ok(defaultOut.style.includes('room to vary'));
   assert.ok(defaultOut.style.includes('safe with a slow-turning clock'));
-  assert.ok(defaultOut.style.length < 1000);
+  assert.ok(defaultOut.style.includes('do not specify male or female'));
+  assert.ok(defaultOut.style.length < 1200);
+  const sparse = makePrompts(repo, {...options, voice: 'sparse'}, []);
+  assert.ok(sparse.style.includes('mostly instrumental'));
+  assert.ok(sparse.songwriting.includes('sparse lyrics'));
+  assert.ok(sparse.lyrics.includes('Sparse vocals'));
   const alt = makePrompts(repo, {...options, bpm: 120, theme: 'wallet', vibe: 'night', voice: 'instrumental'}, []);
   assert.ok(alt.style.includes('95 BPM'));
   assert.ok(alt.style.includes('pocket-sized wallet'));

@@ -1,4 +1,4 @@
-import {buildLyricsInstruction, cleanText, DEFAULT_CLAWD_PROFILE, THEMES} from '../src/prompts.js';
+import {buildLyricsInstruction, cleanText, DEFAULT_CLAWD_PROFILE, THEMES, VIBES, VOICES} from '../src/prompts.js';
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 export const MAX_BODY_BYTES = 48_000;
@@ -8,8 +8,8 @@ export const MAX_OUTPUT_CHARS = 12_000;
 export const GEMINI_TIMEOUT_MS = 28_000;
 export const MAX_OUTPUT_TOKENS = 4096;
 
-const VIBE_KEYS = new Set(['dusty', 'night', 'sunny']);
-const VOICE_KEYS = new Set(['instrumental', 'male', 'female', 'spoken']);
+const VIBE_KEYS = new Set(Object.keys(VIBES));
+const VOICE_KEYS = new Set(Object.keys(VOICES));
 const THEME_KEYS = new Set(['auto', ...Object.keys(THEMES)]);
 const SOURCE_KEYS = new Set(['github', 'manual', 'demo']);
 
@@ -96,8 +96,8 @@ export function validateGenerateRequest(body) {
       : []
   };
 
-  const vibe = requireString(optionsInput.vibe || 'dusty', 'options.vibe', {max: 40});
-  const voice = requireString(optionsInput.voice || 'male', 'options.voice', {max: 40});
+  const vibe = requireString(optionsInput.vibe || 'open', 'options.vibe', {max: 40});
+  const voice = requireString(optionsInput.voice || 'sparse', 'options.voice', {max: 40});
   const theme = requireString(optionsInput.theme || 'auto', 'options.theme', {max: 40});
   if (!VIBE_KEYS.has(vibe)) throw new LyricsRequestError('options.vibe is invalid.');
   if (!VOICE_KEYS.has(voice)) throw new LyricsRequestError('options.voice is invalid.');

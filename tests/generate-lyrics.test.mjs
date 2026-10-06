@@ -18,8 +18,8 @@ const validBody = {
     topics: ['vesting']
   },
   options: {
-    vibe: 'dusty',
-    voice: 'male',
+    vibe: 'open',
+    voice: 'sparse',
     theme: 'auto',
     bpm: 74,
     direction: 'quiet confidence',
