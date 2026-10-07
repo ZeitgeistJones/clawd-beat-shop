@@ -4,6 +4,7 @@ import {
   DEFAULT_GEMINI_MODEL,
   generateLyricsFromRequest,
   handleGenerateLyricsRequest,
+  isRetryableGeminiFailure,
   parseGeminiSong,
   validateGenerateRequest
 } from '../server/generate-lyrics.mjs';
@@ -148,6 +149,55 @@ test('Gemini 400 schema errors retry without responseJsonSchema', async () => {
   });
   assert.equal(calls, 2);
   assert.equal(result.title, 'clawd-vesting');
+});
+
+test('high-demand Gemini failures retry and then succeed', async () => {
+  assert.equal(
+    isRetryableGeminiFailure(503, 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.'),
+    true
+  );
+  assert.equal(isRetryableGeminiFailure(429, 'Quota exceeded for quota metric'), false);
+
+  let calls = 0;
+  let sleeps = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    if (calls < 3) {
+      return new Response(JSON.stringify({
+        error: {
+          message: 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.',
+          status: 'UNAVAILABLE'
+        }
+      }), {status: 503});
+    }
+    return geminiOk();
+  };
+  const result = await generateLyricsFromRequest(validBody, {
+    env: {GEMINI_API_KEY: 'test-key'},
+    fetchImpl,
+    sleep: async () => { sleeps += 1; }
+  });
+  assert.equal(calls, 3);
+  assert.equal(sleeps, 2);
+  assert.equal(result.title, 'clawd-vesting');
+});
+
+test('exhausted high-demand retries surface a busy error', async () => {
+  const response = await handleGenerateLyricsRequest(new Request('http://localhost/api/generate-lyrics', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(validBody)
+  }), {
+    env: {GEMINI_API_KEY: 'test-key'},
+    fetchImpl: async () => new Response(JSON.stringify({
+      error: {message: 'This model is currently experiencing high demand. Please try again later.', status: 'UNAVAILABLE'}
+    }), {status: 503}),
+    sleep: async () => {}
+  });
+  assert.equal(response.status, 503);
+  const payload = await response.json();
+  assert.equal(payload.code, 'upstream_busy');
+  assert.match(payload.error, /busy/i);
 });
 
 test('Gemini HTTP failures include a safe upstream detail', async () => {

@@ -9,6 +9,9 @@ export const MAX_OUTPUT_CHARS = 12_000;
 export const GEMINI_TIMEOUT_MS = 55_000;
 // Enough for a song pack; lower than before so Gemini finishes sooner.
 export const MAX_OUTPUT_TOKENS = 4096;
+// Temporary capacity spikes ("high demand") usually clear quickly — retry a few times inside the timeout.
+export const GEMINI_MAX_ATTEMPTS = 3;
+export const GEMINI_RETRY_DELAYS_MS = [1500, 3000];
 
 const VIBE_KEYS = new Set(Object.keys(VIBES));
 const VOICE_KEYS = new Set(Object.keys(VOICES));
@@ -197,9 +200,24 @@ function geminiErrorDetail(bodyText) {
   }
 }
 
+export function isRetryableGeminiFailure(status, bodyText) {
+  const lower = `${bodyText || ''}`.toLowerCase();
+  // Hard quota / billing: do not burn the timeout budget retrying.
+  if (/quota exceeded|exceeded your current quota|billing/i.test(lower)) return false;
+  if (status === 503 || status === 502) return true;
+  return /high demand|spikes in demand|overloaded|unavailable|try again later|temporarily/i.test(lower);
+}
+
 function mapGeminiHttpError(status, bodyText) {
   const detail = geminiErrorDetail(bodyText);
   const lower = `${bodyText || ''} ${detail}`.toLowerCase();
+  if (/high demand|spikes in demand|overloaded/i.test(lower) || status === 503) {
+    return new LyricsRequestError(
+      'Gemini is busy right now. Wait a moment and try again.',
+      503,
+      'upstream_busy'
+    );
+  }
   if (status === 429 || lower.includes('quota') || lower.includes('rate limit') || lower.includes('resource_exhausted')) {
     return new LyricsRequestError(
       'Gemini quota or rate limit was reached. Wait a bit, then try again.',
@@ -229,6 +247,26 @@ function mapGeminiHttpError(status, bodyText) {
     502,
     'upstream_error'
   );
+}
+
+async function delay(ms, signal, sleep = (wait) => new Promise(resolve => setTimeout(resolve, wait))) {
+  if (!ms) return;
+  if (signal?.aborted) {
+    throw new LyricsRequestError('Gemini timed out. Try again with fewer excerpts.', 504, 'timeout');
+  }
+  let onAbort;
+  try {
+    await Promise.race([
+      sleep(ms),
+      new Promise((_, reject) => {
+        if (!signal) return;
+        onAbort = () => reject(new LyricsRequestError('Gemini timed out. Try again with fewer excerpts.', 504, 'timeout'));
+        signal.addEventListener('abort', onAbort, {once: true});
+      })
+    ]);
+  } finally {
+    if (signal && onAbort) signal.removeEventListener('abort', onAbort);
+  }
 }
 
 function buildGeminiBody(instruction, {structured = true} = {}) {
@@ -269,41 +307,63 @@ async function postGemini(url, apiKey, body, {fetchImpl, signal}) {
   }
 }
 
-export async function callGemini({instruction, apiKey, model, fetchImpl = globalThis.fetch.bind(globalThis), signal}) {
+export async function callGemini({
+  instruction,
+  apiKey,
+  model,
+  fetchImpl = globalThis.fetch.bind(globalThis),
+  signal,
+  sleep
+}) {
   if (!apiKey) throw new LyricsRequestError('Lyrics generation is not configured. Set GEMINI_API_KEY on the server.', 503, 'missing_credentials');
   const selectedModel = sanitizeModel(model);
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent`;
   const timeout = AbortSignal.timeout(GEMINI_TIMEOUT_MS);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
 
-  let response = await postGemini(url, apiKey, buildGeminiBody(instruction, {structured: true}), {fetchImpl, signal: combined});
-  let bodyText = await response.text();
+  let lastStatus = 0;
+  let lastBody = '';
 
-  // If the structured-schema request is rejected, retry once with JSON mime type only.
-  if (!response.ok && (response.status === 400 || /invalid.?argument|unknown name|response.?schema|json.?schema/i.test(bodyText))) {
-    console.error('generate-lyrics schema request rejected; retrying without responseJsonSchema', response.status);
-    response = await postGemini(url, apiKey, buildGeminiBody(instruction, {structured: false}), {fetchImpl, signal: combined});
-    bodyText = await response.text();
+  for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
+    let response = await postGemini(url, apiKey, buildGeminiBody(instruction, {structured: true}), {fetchImpl, signal: combined});
+    let bodyText = await response.text();
+
+    // If the structured-schema request is rejected, retry once with JSON mime type only.
+    if (!response.ok && (response.status === 400 || /invalid.?argument|unknown name|response.?schema|json.?schema/i.test(bodyText))) {
+      console.error('generate-lyrics schema request rejected; retrying without responseJsonSchema', response.status);
+      response = await postGemini(url, apiKey, buildGeminiBody(instruction, {structured: false}), {fetchImpl, signal: combined});
+      bodyText = await response.text();
+    }
+
+    if (response.ok) {
+      let payload;
+      try {
+        payload = JSON.parse(bodyText);
+      } catch {
+        throw new LyricsRequestError('Gemini returned a non-JSON response.', 502, 'bad_model_output');
+      }
+      return parseGeminiSong(payload);
+    }
+
+    lastStatus = response.status;
+    lastBody = bodyText;
+    const canRetry = attempt < GEMINI_MAX_ATTEMPTS && isRetryableGeminiFailure(response.status, bodyText);
+    if (!canRetry) break;
+
+    const waitMs = GEMINI_RETRY_DELAYS_MS[attempt - 1] ?? GEMINI_RETRY_DELAYS_MS.at(-1);
+    console.error('generate-lyrics Gemini busy; retrying', response.status, `attempt ${attempt + 1}/${GEMINI_MAX_ATTEMPTS}`);
+    await delay(waitMs, combined, sleep);
   }
 
-  if (!response.ok) {
-    console.error('generate-lyrics Gemini HTTP error', response.status);
-    throw mapGeminiHttpError(response.status, bodyText);
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(bodyText);
-  } catch {
-    throw new LyricsRequestError('Gemini returned a non-JSON response.', 502, 'bad_model_output');
-  }
-  return parseGeminiSong(payload);
+  console.error('generate-lyrics Gemini HTTP error', lastStatus);
+  throw mapGeminiHttpError(lastStatus, lastBody);
 }
 
 export async function generateLyricsFromRequest(body, {
   env = process.env,
   fetchImpl = globalThis.fetch.bind(globalThis),
-  signal
+  signal,
+  sleep
 } = {}) {
   const {repo, options, evidence} = validateGenerateRequest(body);
   const instruction = buildLyricsInstruction(repo, options, evidence);
@@ -315,7 +375,8 @@ export async function generateLyricsFromRequest(body, {
     apiKey: typeof env.GEMINI_API_KEY === 'string' ? env.GEMINI_API_KEY.trim() : '',
     model: (typeof env.GEMINI_MODEL === 'string' && env.GEMINI_MODEL.trim()) || DEFAULT_GEMINI_MODEL,
     fetchImpl,
-    signal
+    signal,
+    sleep
   });
   return {
     ...song,
