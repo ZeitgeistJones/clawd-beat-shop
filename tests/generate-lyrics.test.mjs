@@ -91,17 +91,44 @@ test('missing GEMINI_API_KEY returns a clear configuration error', async () => {
   assert.ok(!JSON.stringify(payload).toLowerCase().includes('apikey'));
 });
 
-test('quota failures surface a clear 429', async () => {
-  const fetchImpl = async () => new Response(JSON.stringify({error: {message: 'Quota exceeded for quota metric'}}), {status: 429});
+test('hard quota failures surface a clear 429 without retrying', async () => {
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    return new Response(JSON.stringify({error: {message: 'Quota exceeded for quota metric'}}), {status: 429});
+  };
   const response = await handleGenerateLyricsRequest(new Request('http://localhost/api/generate-lyrics', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(validBody)
-  }), {env: {GEMINI_API_KEY: 'test-key'}, fetchImpl});
+  }), {env: {GEMINI_API_KEY: 'test-key'}, fetchImpl, sleep: async () => {}});
+  assert.equal(calls, 1);
   assert.equal(response.status, 429);
   const payload = await response.json();
   assert.equal(payload.code, 'quota_exceeded');
-  assert.match(payload.error, /quota|rate limit/i);
+  assert.match(payload.error, /quota is used up/i);
+});
+
+test('temporary rate limits retry and then succeed', async () => {
+  let calls = 0;
+  let sleeps = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    if (calls < 3) {
+      return new Response(JSON.stringify({
+        error: {message: 'Resource has been exhausted (e.g. check quota).', status: 'RESOURCE_EXHAUSTED'}
+      }), {status: 429});
+    }
+    return geminiOk();
+  };
+  const result = await generateLyricsFromRequest(validBody, {
+    env: {GEMINI_API_KEY: 'test-key'},
+    fetchImpl,
+    sleep: async () => { sleeps += 1; }
+  });
+  assert.equal(calls, 3);
+  assert.equal(sleeps, 2);
+  assert.equal(result.title, 'clawd-vesting');
 });
 
 test('successful mocked Gemini response returns validated song fields', async () => {
@@ -157,6 +184,7 @@ test('high-demand Gemini failures retry and then succeed', async () => {
     true
   );
   assert.equal(isRetryableGeminiFailure(429, 'Quota exceeded for quota metric'), false);
+  assert.equal(isRetryableGeminiFailure(429, 'Resource has been exhausted (e.g. check quota).'), true);
 
   let calls = 0;
   let sleeps = 0;

@@ -9,9 +9,9 @@ export const MAX_OUTPUT_CHARS = 12_000;
 export const GEMINI_TIMEOUT_MS = 55_000;
 // Enough for a song pack; lower than before so Gemini finishes sooner.
 export const MAX_OUTPUT_TOKENS = 4096;
-// Temporary capacity spikes ("high demand") usually clear quickly — retry a few times inside the timeout.
+// Temporary capacity / rate-limit spikes usually clear quickly — retry a few times inside the timeout.
 export const GEMINI_MAX_ATTEMPTS = 3;
-export const GEMINI_RETRY_DELAYS_MS = [1500, 3000];
+export const GEMINI_RETRY_DELAYS_MS = [2000, 4000];
 
 const VIBE_KEYS = new Set(Object.keys(VIBES));
 const VOICE_KEYS = new Set(Object.keys(VOICES));
@@ -200,12 +200,17 @@ function geminiErrorDetail(bodyText) {
   }
 }
 
+export function isHardGeminiQuotaFailure(bodyText) {
+  const lower = `${bodyText || ''}`.toLowerCase();
+  // Daily/plan caps and billing — retries will not help.
+  return /quota exceeded|exceeded your current quota|billing|free.?tier.*limit|limit:\s*0\b/i.test(lower);
+}
+
 export function isRetryableGeminiFailure(status, bodyText) {
   const lower = `${bodyText || ''}`.toLowerCase();
-  // Hard quota / billing: do not burn the timeout budget retrying.
-  if (/quota exceeded|exceeded your current quota|billing/i.test(lower)) return false;
-  if (status === 503 || status === 502) return true;
-  return /high demand|spikes in demand|overloaded|unavailable|try again later|temporarily/i.test(lower);
+  if (isHardGeminiQuotaFailure(bodyText)) return false;
+  if (status === 503 || status === 502 || status === 429) return true;
+  return /high demand|spikes in demand|overloaded|unavailable|try again later|temporarily|rate limit|resource.?exhausted/i.test(lower);
 }
 
 function mapGeminiHttpError(status, bodyText) {
@@ -218,11 +223,18 @@ function mapGeminiHttpError(status, bodyText) {
       'upstream_busy'
     );
   }
-  if (status === 429 || lower.includes('quota') || lower.includes('rate limit') || lower.includes('resource_exhausted')) {
+  if (isHardGeminiQuotaFailure(bodyText)) {
     return new LyricsRequestError(
-      'Gemini quota or rate limit was reached. Wait a bit, then try again.',
+      'Gemini quota is used up for now. Check usage in Google AI Studio, then try again later.',
       429,
       'quota_exceeded'
+    );
+  }
+  if (status === 429 || lower.includes('rate limit') || lower.includes('resource_exhausted') || lower.includes('quota')) {
+    return new LyricsRequestError(
+      'Gemini rate limit was hit. Wait a minute, then try again.',
+      429,
+      'rate_limited'
     );
   }
   if (status === 401 || status === 403) {
