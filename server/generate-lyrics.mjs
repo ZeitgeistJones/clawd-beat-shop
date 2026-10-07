@@ -1,4 +1,4 @@
-import {buildLyricsInstruction, cleanText, DEFAULT_CLAWD_PROFILE, THEMES, VIBES, VOICES} from '../src/prompts.js';
+import {buildLyricsInstruction, cleanText, THEMES, VIBES, VOICES} from '../src/prompts.js';
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 export const MAX_BODY_BYTES = 48_000;
@@ -115,7 +115,7 @@ export function validateGenerateRequest(body) {
     theme,
     bpm: Math.round(bpm),
     direction: requireString(optionsInput.direction || '', 'options.direction', {max: 1200, optional: true}),
-    profile: requireString(optionsInput.profile || DEFAULT_CLAWD_PROFILE, 'options.profile', {max: 1600})
+    profile: requireString(optionsInput.profile || '', 'options.profile', {max: 1600, optional: true})
   };
 
   const evidence = evidenceInput.map((item, index) => {

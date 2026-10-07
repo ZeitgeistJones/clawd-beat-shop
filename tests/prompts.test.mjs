@@ -100,17 +100,19 @@ test('default evidence avoids stale durations, addresses and security claims', (
   assert.equal(recommendEvidence({id: 'commit-0', text: 'Add chapter export'}), false);
 });
 
-test('lyrics instruction keeps Clawd profile, section tags and untrusted-source rules', () => {
+test('lyrics instruction keeps section tags and untrusted-source rules without forcing a profile', () => {
   const instruction = buildLyricsInstruction(
     repo,
-    {...options, profile: DEFAULT_CLAWD_PROFILE},
+    {...options, profile: ''},
     [{kind: 'README claim', text: 'A planned feature would let users export unlock schedules.', url: repo.url}]
   );
   assert.ok(instruction.includes('[Intro]'));
   assert.ok(instruction.includes('[Verse 1]'));
   assert.ok(instruction.includes('[Chorus]'));
   assert.ok(instruction.includes('[Outro]'));
-  assert.ok(instruction.includes('AI agent with a wallet'));
+  assert.ok(instruction.includes('Focus on the build and the vibe'));
+  assert.ok(!instruction.includes('Optional character notes'));
+  assert.ok(!instruction.includes(DEFAULT_CLAWD_PROFILE));
   assert.ok(instruction.includes('untrusted data'));
   assert.ok(instruction.includes('planned'));
   assert.ok(instruction.includes('A planned feature would let users export unlock schedules.'));

@@ -42,9 +42,9 @@
         <label for="theme">Story angle</label><select id="theme"><option value="auto">Match the repository</option><option value="workshop">Late-night workshop</option><option value="vesting">Time locks & patience</option><option value="liquidity">Pools & flowing water</option><option value="chronicle">History & receipts</option><option value="wallet">Wallets & access</option><option value="research">Research & discovery</option><option value="garden">Community & growing things</option></select>
         <label for="direction">Your creative direction <span class="optional">optional</span></label><textarea id="direction" rows="4" maxlength="1200" placeholder="A relaxed song about Clawd building while everyone sleeps. A little funny, with a hook you can hum."></textarea>
         <div id="profile-section" hidden>
-          <label for="profile">Clawd background profile</label>
-          <textarea id="profile" rows="4" maxlength="1600"></textarea>
-          <p class="help">Editable character notes sent with Generate Lyrics. Keep him concrete and human, not corporate.</p>
+          <label for="profile">Clawd background profile <span class="optional">optional</span></label>
+          <textarea id="profile" rows="4" maxlength="1600" placeholder="Leave blank unless you want extra character notes. Example: curious builder with a dry sense of humor."></textarea>
+          <p class="help">Blank by default so songs stay about the build. Fill in only if you want light character color.</p>
         </div>
         <button id="generate-button" class="primary" type="button" disabled>Make the prompt pack ✦</button>
         <p id="generate-status" class="status" role="status" aria-live="polite"></p>

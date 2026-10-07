@@ -1,8 +1,7 @@
 import {parseRepo,loadRepo,listClawdRepos} from './github.js';
-import {DEFAULT_CLAWD_PROFILE,evidenceFor,makePrompts,recommendEvidence} from './prompts.js';
+import {evidenceFor,makePrompts,recommendEvidence} from './prompts.js';
 const $ = id=>document.getElementById(id);
 let current = null, evidence = [], result = null, songResult = null, controller = null, generating = false;
-$('profile').value = DEFAULT_CLAWD_PROFILE;
 
 function status(message, error=false) { $('status').textContent=message; $('status').classList.toggle('error',error); }
 function outputStatus(message, error=false) {

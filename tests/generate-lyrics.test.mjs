@@ -23,7 +23,7 @@ const validBody = {
     theme: 'auto',
     bpm: 74,
     direction: 'quiet confidence',
-    profile: 'Clawd builds with tea and claws.'
+    profile: ''
   },
   evidence: [{
     type: 'README claim',
