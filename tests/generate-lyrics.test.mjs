@@ -123,8 +123,45 @@ test('successful mocked Gemini response returns validated song fields', async ()
   assert.ok(calledUrl.includes(`/models/${DEFAULT_GEMINI_MODEL}:generateContent`));
   assert.equal(calledHeaders['x-goog-api-key'], 'test-key');
   assert.equal(calledBody.generationConfig.responseMimeType, 'application/json');
+  assert.deepEqual(calledBody.generationConfig.responseJsonSchema.required, ['title', 'styles', 'lyrics']);
+  assert.equal(calledBody.generationConfig.thinkingConfig.thinkingLevel, 'low');
+  assert.ok(calledBody.generationConfig.maxOutputTokens >= 8192);
   assert.ok(calledBody.contents[0].parts[0].text.includes('untrusted data'));
   assert.ok(calledBody.contents[0].parts[0].text.includes('planned feature'));
+});
+
+test('Gemini 400 schema errors retry without responseJsonSchema', async () => {
+  let calls = 0;
+  const fetchImpl = async (_url, init) => {
+    calls += 1;
+    const body = JSON.parse(init.body);
+    if (calls === 1) {
+      assert.ok(body.generationConfig.responseJsonSchema);
+      return new Response(JSON.stringify({error: {message: 'Invalid JSON payload received. Unknown name response_schema', status: 'INVALID_ARGUMENT'}}), {status: 400});
+    }
+    assert.equal(body.generationConfig.responseJsonSchema, undefined);
+    return geminiOk();
+  };
+  const result = await generateLyricsFromRequest(validBody, {
+    env: {GEMINI_API_KEY: 'test-key'},
+    fetchImpl
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.title, 'clawd-vesting');
+});
+
+test('Gemini HTTP failures include a safe upstream detail', async () => {
+  const response = await handleGenerateLyricsRequest(new Request('http://localhost/api/generate-lyrics', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(validBody)
+  }), {
+    env: {GEMINI_API_KEY: 'test-key'},
+    fetchImpl: async () => new Response(JSON.stringify({error: {message: 'Model gemini-3.8-flash is not found', status: 'NOT_FOUND'}}), {status: 404})
+  });
+  assert.equal(response.status, 502);
+  const payload = await response.json();
+  assert.match(payload.error, /not found/i);
 });
 
 test('malformed Gemini success payload becomes a 502', async () => {

@@ -50,7 +50,7 @@ Upload the **contents** of this folder to a new GitHub repo; `package.json` shou
 
 Set these in Vercel → Project Settings → Environment Variables:
 
-- `GEMINI_API_KEY` (required for Generate Lyrics)
+- `GEMINI_API_KEY` (required for Generate Lyrics) — enable for **Production** and **Preview**
 - `GEMINI_MODEL` (optional; defaults to `gemini-3.8-flash`)
 
 Suno Prompt mode still works without those variables. Do not add `NEXT_PUBLIC_` or other browser-exposed secret prefixes.

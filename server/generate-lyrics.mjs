@@ -6,7 +6,8 @@ export const MAX_EXCERPTS = 10;
 export const MAX_EXCERPT_LENGTH = 440;
 export const MAX_OUTPUT_CHARS = 12_000;
 export const GEMINI_TIMEOUT_MS = 28_000;
-export const MAX_OUTPUT_TOKENS = 4096;
+// Gemini 3.8 Flash thinks by default; keep headroom so thinking does not eat the whole budget.
+export const MAX_OUTPUT_TOKENS = 8192;
 
 const VIBE_KEYS = new Set(Object.keys(VIBES));
 const VOICE_KEYS = new Set(Object.keys(VOICES));
@@ -183,8 +184,21 @@ export function validateSongResult(value) {
   return {title, styles, lyrics};
 }
 
+function geminiErrorDetail(bodyText) {
+  try {
+    const parsed = JSON.parse(bodyText);
+    const message = cleanText(parsed?.error?.message || parsed?.error?.status || '').slice(0, 220);
+    // Never echo anything that looks like a credential.
+    if (!message || /api[_-]?key|bearer\s|sk-/i.test(message)) return '';
+    return message;
+  } catch {
+    return '';
+  }
+}
+
 function mapGeminiHttpError(status, bodyText) {
-  const lower = String(bodyText || '').toLowerCase();
+  const detail = geminiErrorDetail(bodyText);
+  const lower = `${bodyText || ''} ${detail}`.toLowerCase();
   if (status === 429 || lower.includes('quota') || lower.includes('rate limit') || lower.includes('resource_exhausted')) {
     return new LyricsRequestError(
       'Gemini quota or rate limit was reached. Wait a bit, then try again.',
@@ -193,9 +207,65 @@ function mapGeminiHttpError(status, bodyText) {
     );
   }
   if (status === 401 || status === 403) {
-    return new LyricsRequestError('Gemini rejected the server credentials.', 502, 'upstream_auth');
+    return new LyricsRequestError('Gemini rejected the server credentials. Check GEMINI_API_KEY in Vercel.', 502, 'upstream_auth');
   }
-  return new LyricsRequestError('Gemini request failed. Try again shortly.', 502, 'upstream_error');
+  if (status === 404 || lower.includes('not found') || lower.includes('is not found')) {
+    return new LyricsRequestError(
+      detail || 'Gemini model was not found. Check GEMINI_MODEL or leave it unset for the default.',
+      502,
+      'upstream_error'
+    );
+  }
+  if (status === 400 || lower.includes('invalid argument') || lower.includes('invalid_argument')) {
+    return new LyricsRequestError(
+      detail ? `Gemini rejected the request: ${detail}` : 'Gemini rejected the request format. Try again shortly.',
+      502,
+      'upstream_error'
+    );
+  }
+  return new LyricsRequestError(
+    detail ? `Gemini request failed: ${detail}` : 'Gemini request failed. Try again shortly.',
+    502,
+    'upstream_error'
+  );
+}
+
+function buildGeminiBody(instruction, {structured = true} = {}) {
+  const generationConfig = {
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
+    // Gemini 3.8 Flash defaults to medium thinking; low keeps lyrics generation fast and within token budget.
+    thinkingConfig: {thinkingLevel: 'low'}
+  };
+  if (structured) {
+    // Prefer responseJsonSchema (JSON Schema) over the older OpenAPI responseSchema subset.
+    generationConfig.responseMimeType = 'application/json';
+    generationConfig.responseJsonSchema = RESPONSE_SCHEMA;
+  } else {
+    generationConfig.responseMimeType = 'application/json';
+  }
+  return {
+    contents: [{role: 'user', parts: [{text: instruction}]}],
+    generationConfig
+  };
+}
+
+async function postGemini(url, apiKey, body, {fetchImpl, signal}) {
+  try {
+    return await fetchImpl(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey
+      },
+      body: JSON.stringify(body),
+      signal
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+      throw new LyricsRequestError('Gemini timed out. Try again with fewer excerpts.', 504, 'timeout');
+    }
+    throw new LyricsRequestError('Could not reach Gemini.', 502, 'upstream_error');
+  }
 }
 
 export async function callGemini({instruction, apiKey, model, fetchImpl = globalThis.fetch.bind(globalThis), signal}) {
@@ -204,33 +274,21 @@ export async function callGemini({instruction, apiKey, model, fetchImpl = global
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent`;
   const timeout = AbortSignal.timeout(GEMINI_TIMEOUT_MS);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
-  let response;
-  try {
-    response = await fetchImpl(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey
-      },
-      body: JSON.stringify({
-        contents: [{role: 'user', parts: [{text: instruction}]}],
-        generationConfig: {
-          maxOutputTokens: MAX_OUTPUT_TOKENS,
-          responseMimeType: 'application/json',
-          responseSchema: RESPONSE_SCHEMA
-        }
-      }),
-      signal: combined
-    });
-  } catch (error) {
-    if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
-      throw new LyricsRequestError('Gemini timed out. Try again with fewer excerpts.', 504, 'timeout');
-    }
-    throw new LyricsRequestError('Could not reach Gemini.', 502, 'upstream_error');
+
+  let response = await postGemini(url, apiKey, buildGeminiBody(instruction, {structured: true}), {fetchImpl, signal: combined});
+  let bodyText = await response.text();
+
+  // If the structured-schema request is rejected, retry once with JSON mime type only.
+  if (!response.ok && (response.status === 400 || /invalid.?argument|unknown name|response.?schema|json.?schema/i.test(bodyText))) {
+    console.error('generate-lyrics schema request rejected; retrying without responseJsonSchema', response.status);
+    response = await postGemini(url, apiKey, buildGeminiBody(instruction, {structured: false}), {fetchImpl, signal: combined});
+    bodyText = await response.text();
   }
 
-  const bodyText = await response.text();
-  if (!response.ok) throw mapGeminiHttpError(response.status, bodyText);
+  if (!response.ok) {
+    console.error('generate-lyrics Gemini HTTP error', response.status);
+    throw mapGeminiHttpError(response.status, bodyText);
+  }
 
   let payload;
   try {
