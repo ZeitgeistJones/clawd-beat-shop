@@ -125,7 +125,7 @@ test('successful mocked Gemini response returns validated song fields', async ()
   assert.equal(calledBody.generationConfig.responseMimeType, 'application/json');
   assert.deepEqual(calledBody.generationConfig.responseJsonSchema.required, ['title', 'styles', 'lyrics']);
   assert.equal(calledBody.generationConfig.thinkingConfig.thinkingLevel, 'low');
-  assert.ok(calledBody.generationConfig.maxOutputTokens >= 8192);
+  assert.ok(calledBody.generationConfig.maxOutputTokens >= 4096);
   assert.ok(calledBody.contents[0].parts[0].text.includes('untrusted data'));
   assert.ok(calledBody.contents[0].parts[0].text.includes('planned feature'));
 });

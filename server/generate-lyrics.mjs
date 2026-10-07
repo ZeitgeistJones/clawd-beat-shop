@@ -5,9 +5,10 @@ export const MAX_BODY_BYTES = 48_000;
 export const MAX_EXCERPTS = 10;
 export const MAX_EXCERPT_LENGTH = 440;
 export const MAX_OUTPUT_CHARS = 12_000;
-export const GEMINI_TIMEOUT_MS = 28_000;
-// Gemini 3.8 Flash thinks by default; keep headroom so thinking does not eat the whole budget.
-export const MAX_OUTPUT_TOKENS = 8192;
+// Stay under Vercel Hobby maxDuration (60s) with a little buffer for response handling.
+export const GEMINI_TIMEOUT_MS = 55_000;
+// Enough for a song pack; lower than before so Gemini finishes sooner.
+export const MAX_OUTPUT_TOKENS = 4096;
 
 const VIBE_KEYS = new Set(Object.keys(VIBES));
 const VOICE_KEYS = new Set(Object.keys(VOICES));

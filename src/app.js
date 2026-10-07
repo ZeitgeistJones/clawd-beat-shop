@@ -152,7 +152,7 @@ async function generateLyrics() {
   $('title-output').value = current.name || '';
   $('lyrics-styles-output').value = '';
   $('lyrics-output').value = '';
-  const waiting = 'Generating lyrics… this can take up to about 30 seconds.';
+  const waiting = 'Generating lyrics… usually under a minute.';
   generateStatus(waiting);
   outputStatus(waiting);
   status('Generating lyrics…');
@@ -172,13 +172,13 @@ async function generateLyrics() {
           topics: current.topics || []
         },
         options: musicalOptions(),
-        evidence: selectedEvidence().slice(0,10).map(item => ({
+        evidence: selectedEvidence().slice(0,7).map(item => ({
           type: item.kind,
           excerpt: item.text,
           url: item.url || current.url
         }))
       }),
-      signal: AbortSignal.timeout(35000)
+      signal: AbortSignal.timeout(65000)
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
