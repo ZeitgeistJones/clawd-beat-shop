@@ -4,7 +4,8 @@ import {buildLyricsInstruction, cleanText, requiredLyricTags, THEMES, VIBES, VOI
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 export const MAX_BODY_BYTES = 48_000;
 export const MAX_EXCERPTS = 6;
-export const MAX_EXCERPT_LENGTH = 280;
+// Match README excerpt selection in prompts.js (isUsefulExcerpt allows up to 440).
+export const MAX_EXCERPT_LENGTH = 440;
 export const MAX_OUTPUT_CHARS = 8_000;
 // Stay under Vercel Hobby maxDuration (60s) with a little buffer for response handling.
 export const GEMINI_TIMEOUT_MS = 55_000;

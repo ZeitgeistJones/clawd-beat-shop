@@ -171,9 +171,9 @@ async function generateLyrics() {
           topics: current.topics || []
         },
         options: musicalOptions(),
-        evidence: selectedEvidence().slice(0,7).map(item => ({
+        evidence: selectedEvidence().slice(0,6).map(item => ({
           type: item.kind,
-          excerpt: item.text,
+          excerpt: String(item.text || '').slice(0, 440),
           url: item.url || current.url
         }))
       }),
