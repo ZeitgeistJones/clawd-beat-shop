@@ -11,9 +11,9 @@ export const MAX_OUTPUT_CHARS = 8_000;
 export const GEMINI_TIMEOUT_MS = 55_000;
 // 3.8 thinking tokens count against this budget — too low truncates lyrics; keep moderate with thinkingLevel low.
 export const MAX_OUTPUT_TOKENS = 3072;
-// Temporary capacity / rate-limit spikes usually clear quickly — one short retry only (don't burn the timeout).
-export const GEMINI_MAX_ATTEMPTS = 2;
-export const GEMINI_RETRY_DELAYS_MS = [1200];
+// Temporary capacity / per-minute quota spikes usually clear quickly.
+export const GEMINI_MAX_ATTEMPTS = 3;
+export const GEMINI_RETRY_DELAYS_MS = [2500, 5000];
 
 const VIBE_KEYS = new Set(Object.keys(VIBES));
 const VOICE_KEYS = new Set(Object.keys(VOICES));
@@ -208,15 +208,26 @@ function geminiErrorDetail(bodyText) {
 
 export function isHardGeminiQuotaFailure(bodyText) {
   const lower = `${bodyText || ''}`.toLowerCase();
-  // Daily/plan caps and billing — retries will not help.
-  return /quota exceeded|exceeded your current quota|billing|free.?tier.*limit|limit:\s*0\b/i.test(lower);
+  // Per-minute / short-window limits often say "quota exceeded" but recover after a short wait.
+  if (/per minute|per_minute|requests per minute|\brpm\b|rate.?limit/i.test(lower)) return false;
+  // Daily/plan caps and billing — retries will not help on this key.
+  return /exceeded your current quota|check your plan and billing|billing details|billing hard limit|free.?tier quota|limit:\s*0\b|per day|per_day|daily (quota|limit)/i.test(lower);
 }
 
 export function isRetryableGeminiFailure(status, bodyText) {
   const lower = `${bodyText || ''}`.toLowerCase();
   if (isHardGeminiQuotaFailure(bodyText)) return false;
   if (status === 503 || status === 502 || status === 429) return true;
-  return /high demand|spikes in demand|overloaded|unavailable|try again later|temporarily|rate limit|resource.?exhausted/i.test(lower);
+  return /high demand|spikes in demand|overloaded|unavailable|try again later|temporarily|rate limit|resource.?exhausted|quota exceeded for quota metric/i.test(lower);
+}
+
+export function geminiApiKeysFromEnv(env = {}) {
+  const keys = [];
+  for (const name of ['GEMINI_API_KEY', 'GEMINI_API_KEY_2']) {
+    const value = typeof env[name] === 'string' ? env[name].trim() : '';
+    if (value && !keys.includes(value)) keys.push(value);
+  }
+  return keys;
 }
 
 function mapGeminiHttpError(status, bodyText) {
@@ -231,14 +242,18 @@ function mapGeminiHttpError(status, bodyText) {
   }
   if (isHardGeminiQuotaFailure(bodyText)) {
     return new LyricsRequestError(
-      'Gemini quota is used up for now. Check usage in Google AI Studio, then try again later.',
+      detail
+        ? `Gemini quota is used up for now (${detail}). Check Google AI Studio usage/billing, or set GEMINI_API_KEY_2 as a backup.`
+        : 'Gemini quota is used up for now. Check Google AI Studio usage/billing, or set GEMINI_API_KEY_2 as a backup.',
       429,
       'quota_exceeded'
     );
   }
   if (status === 429 || lower.includes('rate limit') || lower.includes('resource_exhausted') || lower.includes('quota')) {
     return new LyricsRequestError(
-      'Gemini rate limit was hit. Wait a minute, then try again.',
+      detail
+        ? `Gemini rate limit was hit (${detail}). Wait a minute, then try again.`
+        : 'Gemini rate limit was hit. Wait a minute, then try again.',
       429,
       'rate_limited'
     );
@@ -394,7 +409,7 @@ export async function callGemini({
     await delay(waitMs, combined, sleep);
   }
 
-  console.error('generate-lyrics Gemini HTTP error', lastStatus);
+  console.error('generate-lyrics Gemini HTTP error', lastStatus, geminiErrorDetail(lastBody) || '(no detail)');
   throw mapGeminiHttpError(lastStatus, lastBody);
 }
 
@@ -409,23 +424,44 @@ export async function generateLyricsFromRequest(body, {
   if (instruction.length > 40_000) {
     throw new LyricsRequestError('Request context is too large. Select fewer excerpts.', 413, 'payload_too_large');
   }
-  const song = await callGemini({
-    instruction,
-    apiKey: typeof env.GEMINI_API_KEY === 'string' ? env.GEMINI_API_KEY.trim() : '',
-    model: (typeof env.GEMINI_MODEL === 'string' && env.GEMINI_MODEL.trim()) || DEFAULT_GEMINI_MODEL,
-    vibe: options.vibe,
-    fetchImpl,
-    signal,
-    sleep
-  });
-  return {
-    ...song,
-    // Song title is always the repository name, not a model-invented phrase.
-    title: repo.name,
-    repository: repo.fullName,
-    source: repo.source,
-    revision: repo.revision
-  };
+  const keys = geminiApiKeysFromEnv(env);
+  if (!keys.length) {
+    throw new LyricsRequestError('Lyrics generation is not configured. Set GEMINI_API_KEY on the server.', 503, 'missing_credentials');
+  }
+  const model = (typeof env.GEMINI_MODEL === 'string' && env.GEMINI_MODEL.trim()) || DEFAULT_GEMINI_MODEL;
+  let lastError = null;
+  for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
+    try {
+      if (keyIndex > 0) {
+        console.error('generate-lyrics trying backup Gemini API key', keyIndex + 1);
+      }
+      const song = await callGemini({
+        instruction,
+        apiKey: keys[keyIndex],
+        model,
+        vibe: options.vibe,
+        fetchImpl,
+        signal,
+        sleep
+      });
+      return {
+        ...song,
+        // Song title is always the repository name, not a model-invented phrase.
+        title: repo.name,
+        repository: repo.fullName,
+        source: repo.source,
+        revision: repo.revision
+      };
+    } catch (error) {
+      lastError = error;
+      const canFailover = error instanceof LyricsRequestError &&
+        keyIndex < keys.length - 1 &&
+        ['quota_exceeded', 'rate_limited', 'upstream_busy', 'upstream_auth'].includes(error.code);
+      if (!canFailover) throw error;
+      console.error('generate-lyrics primary key failed; failing over', error.code);
+    }
+  }
+  throw lastError || new LyricsRequestError('Gemini request failed. Try again shortly.', 502, 'upstream_error');
 }
 
 export function jsonResponse(status, payload) {

@@ -112,7 +112,9 @@ test('hard quota failures surface a clear 429 without retrying', async () => {
   let calls = 0;
   const fetchImpl = async () => {
     calls += 1;
-    return new Response(JSON.stringify({error: {message: 'Quota exceeded for quota metric'}}), {status: 429});
+    return new Response(JSON.stringify({
+      error: {message: 'You exceeded your current quota, please check your plan and billing details.'}
+    }), {status: 429});
   };
   const response = await handleGenerateLyricsRequest(new Request('http://localhost/api/generate-lyrics', {
     method: 'POST',
@@ -127,13 +129,20 @@ test('hard quota failures surface a clear 429 without retrying', async () => {
 });
 
 test('temporary rate limits retry and then succeed', async () => {
+  assert.equal(
+    isRetryableGeminiFailure(429, "Quota exceeded for quota metric 'GenerateContent request' and limit 'GenerateContent request per minute per project'"),
+    true
+  );
   let calls = 0;
   let sleeps = 0;
   const fetchImpl = async () => {
     calls += 1;
-    if (calls < 2) {
+    if (calls < 3) {
       return new Response(JSON.stringify({
-        error: {message: 'Resource has been exhausted (e.g. check quota).', status: 'RESOURCE_EXHAUSTED'}
+        error: {
+          message: "Quota exceeded for quota metric 'GenerateContent request' and limit 'GenerateContent request per minute per project'",
+          status: 'RESOURCE_EXHAUSTED'
+        }
       }), {status: 429});
     }
     return geminiOk();
@@ -143,8 +152,30 @@ test('temporary rate limits retry and then succeed', async () => {
     fetchImpl,
     sleep: async () => { sleeps += 1; }
   });
+  assert.equal(calls, 3);
+  assert.equal(sleeps, 2);
+  assert.equal(result.title, 'clawd-vesting');
+});
+
+test('backup Gemini key is used after primary quota failure', async () => {
+  let calls = 0;
+  const fetchImpl = async (_url, init) => {
+    calls += 1;
+    const key = init.headers['x-goog-api-key'];
+    if (key === 'primary-key') {
+      return new Response(JSON.stringify({
+        error: {message: 'You exceeded your current quota, please check your plan and billing details.'}
+      }), {status: 429});
+    }
+    assert.equal(key, 'backup-key');
+    return geminiOk();
+  };
+  const result = await generateLyricsFromRequest(validBody, {
+    env: {GEMINI_API_KEY: 'primary-key', GEMINI_API_KEY_2: 'backup-key'},
+    fetchImpl,
+    sleep: async () => {}
+  });
   assert.equal(calls, 2);
-  assert.equal(sleeps, 1);
   assert.equal(result.title, 'clawd-vesting');
 });
 
@@ -201,14 +232,14 @@ test('high-demand Gemini failures retry and then succeed', async () => {
     isRetryableGeminiFailure(503, 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.'),
     true
   );
-  assert.equal(isRetryableGeminiFailure(429, 'Quota exceeded for quota metric'), false);
+  assert.equal(isRetryableGeminiFailure(429, 'You exceeded your current quota, please check your plan and billing details.'), false);
   assert.equal(isRetryableGeminiFailure(429, 'Resource has been exhausted (e.g. check quota).'), true);
 
   let calls = 0;
   let sleeps = 0;
   const fetchImpl = async () => {
     calls += 1;
-    if (calls < 2) {
+    if (calls < 3) {
       return new Response(JSON.stringify({
         error: {
           message: 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.',
@@ -223,8 +254,8 @@ test('high-demand Gemini failures retry and then succeed', async () => {
     fetchImpl,
     sleep: async () => { sleeps += 1; }
   });
-  assert.equal(calls, 2);
-  assert.equal(sleeps, 1);
+  assert.equal(calls, 3);
+  assert.equal(sleeps, 2);
   assert.equal(result.title, 'clawd-vesting');
 });
 
