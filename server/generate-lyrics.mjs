@@ -1,18 +1,18 @@
 import {buildLyricsInstruction, cleanText, THEMES, VIBES, VOICES} from '../src/prompts.js';
 
-// 2.5 Flash can turn thinking fully off. 3.8 Flash always thinks (even on "low") and often exceeds Hobby's 60s.
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+// New Gemini API keys cannot use 2.5 Flash — Google requires gemini-3.8-flash.
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 export const MAX_BODY_BYTES = 48_000;
 export const MAX_EXCERPTS = 6;
 export const MAX_EXCERPT_LENGTH = 280;
 export const MAX_OUTPUT_CHARS = 8_000;
 // Stay under Vercel Hobby maxDuration (60s) with a little buffer for response handling.
-export const GEMINI_TIMEOUT_MS = 50_000;
-// Sparse song packs are small; a high ceiling lets thinking models burn the whole timeout.
-export const MAX_OUTPUT_TOKENS = 1536;
-// Temporary capacity / rate-limit spikes usually clear quickly — retry a few times inside the timeout.
+export const GEMINI_TIMEOUT_MS = 55_000;
+// 3.8 thinking tokens count against this budget — too low truncates lyrics; keep moderate with thinkingLevel low.
+export const MAX_OUTPUT_TOKENS = 3072;
+// Temporary capacity / rate-limit spikes usually clear quickly — one short retry only (don't burn the timeout).
 export const GEMINI_MAX_ATTEMPTS = 2;
-export const GEMINI_RETRY_DELAYS_MS = [1500];
+export const GEMINI_RETRY_DELAYS_MS = [1200];
 
 const VIBE_KEYS = new Set(Object.keys(VIBES));
 const VOICE_KEYS = new Set(Object.keys(VOICES));
@@ -58,7 +58,12 @@ function requireString(value, label, {max, min = 1, optional = false} = {}) {
 }
 
 function sanitizeModel(model) {
-  const value = cleanText(model || DEFAULT_GEMINI_MODEL);
+  let value = cleanText(model || DEFAULT_GEMINI_MODEL);
+  // New API keys reject retired 2.5 Flash IDs — map them to the current required default.
+  if (/^gemini-2\.5-flash(?:-preview.*)?$/i.test(value)) {
+    console.error('generate-lyrics remapping retired model to', DEFAULT_GEMINI_MODEL, value);
+    value = DEFAULT_GEMINI_MODEL;
+  }
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(value)) {
     throw new LyricsRequestError('GEMINI_MODEL is invalid.', 500, 'config_error');
   }
@@ -241,6 +246,13 @@ function mapGeminiHttpError(status, bodyText) {
   if (status === 401 || status === 403) {
     return new LyricsRequestError('Gemini rejected the server credentials. Check GEMINI_API_KEY in Vercel.', 502, 'upstream_auth');
   }
+  if (/no longer available|update your code to use/i.test(lower)) {
+    return new LyricsRequestError(
+      'This Gemini model is retired for new keys. The app default is gemini-3.8-flash — clear GEMINI_MODEL in Vercel or set it to gemini-3.8-flash.',
+      502,
+      'upstream_error'
+    );
+  }
   if (status === 404 || lower.includes('not found') || lower.includes('is not found')) {
     return new LyricsRequestError(
       detail || 'Gemini model was not found. Check GEMINI_MODEL or leave it unset for the default.',
@@ -284,11 +296,11 @@ async function delay(ms, signal, sleep = (wait) => new Promise(resolve => setTim
 
 export function thinkingConfigForModel(model) {
   const name = String(model || '').toLowerCase();
-  // Gemini 2.5: thinkingBudget 0 disables thinking (Talk Normie-fast path).
+  // Legacy 2.5 / lite: budget 0 turns thinking off when those models are still usable.
   if (name.includes('2.5') || name.includes('flash-lite')) {
     return {thinkingBudget: 0};
   }
-  // Gemini 3.8/3.7 do not support "minimal" — low is the floor, and it is still slow.
+  // 3.8/3.7 reject "minimal" — low is the latency floor Google documents for drafts/chat.
   if (name.includes('3.8') || name.includes('3.7')) {
     return {thinkingLevel: 'low'};
   }
