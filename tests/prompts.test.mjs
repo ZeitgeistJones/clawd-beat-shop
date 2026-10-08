@@ -82,12 +82,14 @@ test('style changes with theme, palette, tempo and voice and stays concise', () 
   assert.ok(alt.lyrics.includes('enable Instrumental'));
   assert.ok(alt.songwriting.includes('no lyrics'));
   const vapor = makePrompts(repo, {...options, vibe: 'vaporwave', voice: 'spoken'}, []);
-  assert.ok(vapor.style.includes('Cinematic vaporwave'));
-  assert.ok(vapor.style.includes('spoken-word monologue'));
-  assert.ok(vapor.songwriting.includes('[Ambient Intro]'));
-  assert.ok(vapor.songwriting.includes('[Big Vaporwave Beat Drop]'));
-  assert.ok(vapor.songwriting.includes('[Dreamy Outro]'));
-  assert.ok(vapor.lyrics.includes('Vaporwave'));
+  assert.ok(vapor.style.includes('Lo-fi vaporwave'));
+  assert.ok(vapor.style.includes('old-radio'));
+  assert.ok(vapor.style.includes('no huge drop') || vapor.style.includes('No epic build'));
+  assert.ok(vapor.songwriting.includes('[Radio Intro]'));
+  assert.ok(vapor.songwriting.includes('[Spoken Transmission]'));
+  assert.ok(vapor.songwriting.includes('[Mellow Groove]'));
+  assert.ok(vapor.songwriting.includes('[Faded Outro]'));
+  assert.ok(vapor.lyrics.includes('vaporwave'));
 });
 
 test('source type explicitly marks pasted README claims and commit uncertainty', () => {
@@ -131,8 +133,8 @@ test('lyrics instruction keeps section tags and untrusted-source rules without f
     {...options, vibe: 'vaporwave', voice: 'spoken', profile: ''},
     [{kind: 'README claim', text: 'A planned feature would let users export unlock schedules.', url: repo.url}]
   );
-  assert.ok(vaporInstruction.includes('Cinematic vaporwave'));
-  assert.ok(vaporInstruction.includes('[Original Spoken Monologue]'));
-  assert.ok(vaporInstruction.includes('[Final Bigger Drop]'));
-  assert.ok(vaporInstruction.includes('do not quote or imitate any real movie'));
+  assert.ok(vaporInstruction.includes('Lo-fi vaporwave'));
+  assert.ok(vaporInstruction.includes('[Spoken Transmission]'));
+  assert.ok(vaporInstruction.includes('[Mellow Groove]'));
+  assert.ok(vaporInstruction.includes('no movie quotes'));
 });

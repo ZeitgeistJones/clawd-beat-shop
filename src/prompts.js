@@ -20,19 +20,17 @@ export const VIBES = {
   dusty: 'dusty boom-bap, warm Rhodes, mellow bass, vinyl crackle',
   night: 'soft drums, felt piano, jazz guitar, deep bass',
   sunny: 'laid-back boom-bap, jazzy keys, warm bass, light rimshots',
-  vaporwave: 'cinematic vaporwave / vaportrap, sparse ambient synths, tape hiss, distant city noise, washed-out chords, deep bass, punchy downtempo drums, chopped vocal textures, shimmering pads, wide stereo'
+  vaporwave: 'lo-fi vaporwave, soft tape hiss, faint static, worn cassette texture, dusty drums, soft bass, detuned electric piano, hazy synth chords, chopped background vocal fragments, warm analog texture'
 };
 
 export const LOFI_LYRIC_TAGS = ['[Intro]', '[Verse 1]', '[Chorus]', '[Verse 2]', '[Outro]'];
 export const VAPORWAVE_LYRIC_TAGS = [
-  '[Ambient Intro]',
-  '[Original Spoken Monologue]',
-  '[Pause]',
-  '[Big Vaporwave Beat Drop]',
-  '[Instrumental Groove]',
-  '[Short Spoken Callback]',
-  '[Final Bigger Drop]',
-  '[Dreamy Outro]'
+  '[Radio Intro]',
+  '[Spoken Transmission]',
+  '[Mellow Groove]',
+  '[Hazy Instrumental]',
+  '[Short Spoken Fragment]',
+  '[Faded Outro]'
 ];
 
 export function requiredLyricTags(vibeKey) {
@@ -129,7 +127,7 @@ export function inferTheme(repo) {
 
 function styleShape(voiceKey, vibeKey) {
   if (vibeKey === 'vaporwave') {
-    return '20–30s ambient intro + original spoken monologue, silence, big drop, groove, short spoken callback, bigger drop, dreamy outro';
+    return 'tape/radio intro, short dry spoken transmission, mellow groove fade-in (no big drop), hazy instrumental, short spoken fragment, faded outro';
   }
   if (voiceKey === 'instrumental') return 'instrumental arc, soft outro, ~3 min';
   if (voiceKey === 'sparse') return 'long instrumental gaps, short vocal moments, soft outro, ~3 min';
@@ -138,7 +136,7 @@ function styleShape(voiceKey, vibeKey) {
 
 function buildStylePrompt(bpm, vibeKey, voiceKey, theme) {
   if (vibeKey === 'vaporwave') {
-    return `Cinematic vaporwave / vaportrap, ${bpm} BPM, ${VIBES.vaporwave}. Nostalgic late-night, existential, dreamlike, bittersweet, 2 a.m. city lights, memories of a future that never happened. Calm original spoken-word monologue like an old philosophical film scene — reflective, surreal, lonely, profound; completely original, no movie quotes or imitation. After the last spoken line: brief silence, then a dramatic beat drop. Keep vocals sparse and spoken (not singing or rap); instrumentals carry the emotion. No male/female cue. Imagery: ${theme.image}. ${styleShape(voiceKey, vibeKey)}.`;
+    return `Lo-fi vaporwave, ${bpm} BPM, old-radio atmosphere, ${VIBES.vaporwave}. Soft tape hiss, faint static, worn cassette texture, distant room tone. Dry spoken-word voice through an old AM radio or cheap cassette recorder — understated, casual, slightly detached, nostalgic; not theatrical, dramatic, or inspirational. Narrow-band muffled voice, light wow/flutter, subtle distortion, uneven tape pitch. Short natural speech, then a mellow vaporwave groove fades in (no huge drop): dusty drums, soft bass, detuned electric piano, hazy synths, chopped vocal fragments. Mood: lonely but comfortable, faded memory, empty parking lot at night, old television glow, half-heard conversation through a wall. No epic build, orchestral feel, aggressive bass drop, or dramatic narrator. Restrained, dusty, intimate, slightly degraded. No male/female cue. Imagery: ${theme.image}. ${styleShape(voiceKey, vibeKey)}.`;
   }
   return `Lo-fi hip-hop, ${bpm} BPM, ${VIBES[vibeKey]}, ${VOICES[voiceKey]}. Cozy late-night feel. Imagery: ${theme.image}. ${styleShape(voiceKey, vibeKey)}.`;
 }
@@ -188,9 +186,9 @@ export function buildSourcePacket(repo, evidence, options = {}) {
 function lyricsDensityGuidance(voiceKey, vibeKey) {
   if (vibeKey === 'vaporwave') {
     if (voiceKey === 'instrumental') {
-      return 'Vaporwave instrumental: keep the section tags; leave monologue/callback sections as atmosphere-only markers with no spoken words.';
+      return 'Lo-fi vaporwave instrumental: keep the section tags; leave spoken sections as atmosphere-only markers with no words.';
     }
-    return 'Vaporwave vocals: original spoken monologue in the monologue section (natural, conversational, not singing or rap). Short spoken callback later. Instrumental sections do the emotional work. Completely original — do not quote or imitate any real movie.';
+    return 'Lo-fi vaporwave vocals: short dry spoken transmission (casual, detached, nostalgic — not theatrical). Later, one short spoken fragment. Let the mellow groove do most of the work. Completely original; no movie quotes.';
   }
   if (voiceKey === 'sparse') return 'Sparse: 1–2 short lines per section, mostly instrumental space.';
   if (voiceKey === 'instrumental') return 'Instrumental: section tags only, no sung words.';
@@ -212,7 +210,7 @@ export function buildLyricsInstruction(repo, options, evidence) {
     ? evidence.slice(0, 5).map(item => `- ${String(item.text || '').slice(0, 220)}`).join('\n')
     : '- (none — stay atmospheric, invent nothing)';
   const genreLine = musical.vibeKey === 'vaporwave'
-    ? `Cinematic vaporwave song about Clawd on ${repo.fullName}.`
+    ? `Lo-fi vaporwave / old-radio song about Clawd on ${repo.fullName}.`
     : `Lo-fi song about Clawd on ${repo.fullName}.`;
   return `${genreLine} JSON only:
 title: "${repo.name}"
@@ -237,9 +235,9 @@ function briefOutputLine(repoName, musical) {
   const tags = lyricTagLine(musical);
   if (musical.vibeKey === 'vaporwave') {
     if (musical.voiceKey === 'instrumental') {
-      return `Return title "${repoName}", a short Styles line, and vaporwave section tags only (no spoken words): ${tags}.`;
+      return `Return title "${repoName}", a short Styles line, and lo-fi vaporwave section tags only (no spoken words): ${tags}.`;
     }
-    return `Return title "${repoName}", a short Styles line, and vaporwave lyrics with tags ${tags}. Original spoken monologue + short callback; no movie quotes.`;
+    return `Return title "${repoName}", a short Styles line, and lo-fi vaporwave lyrics with tags ${tags}. Short dry radio speech + soft groove fade-in; no big drop, no movie quotes.`;
   }
   if (musical.voiceKey === 'instrumental') {
     return `Return title "${repoName}", a short Styles line, and section tags only (no lyrics).`;
@@ -252,7 +250,7 @@ function briefOutputLine(repoName, musical) {
 
 function lyricsWorkflow(voiceKey, vibeKey) {
   if (vibeKey === 'vaporwave') {
-    return 'Vaporwave / vaportrap: paste Styles, then paste the section-tagged lyrics (spoken monologue + drops). Keep vocals sparse and spoken.';
+    return 'Lo-fi vaporwave: paste Styles, then paste the section-tagged lyrics (short radio speech + mellow groove). Keep speech dry and restrained.';
   }
   if (voiceKey === 'instrumental') {
     return 'Instrumental track: leave the Suno Lyrics field empty and enable Instrumental.';
@@ -274,7 +272,7 @@ export function makePrompts(repo, options, evidence) {
     ? `\nOptional character notes (use lightly, do not dominate the song): ${musical.profile}`
     : '';
   const genreLine = musical.vibeKey === 'vaporwave'
-    ? `Cinematic vaporwave song about Clawd on ${repo.fullName}.`
+    ? `Lo-fi vaporwave / old-radio song about Clawd on ${repo.fullName}.`
     : `Lo-fi song about Clawd on ${repo.fullName}.`;
   // Tiny paste-ready brief — Generate Lyrics is the main path; this is the fallback.
   const songwriting = `${genreLine}

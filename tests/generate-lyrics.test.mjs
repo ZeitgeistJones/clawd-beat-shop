@@ -76,22 +76,20 @@ test('parseGeminiSong rejects malformed and incomplete lyrics', () => {
   assert.equal(song.title, validSong.title);
 });
 
-test('vaporwave palette requires its cinematic section tags', () => {
-  const vaporLyrics = `[Ambient Intro]
-hiss
-[Original Spoken Monologue]
+test('vaporwave palette requires its old-radio section tags', () => {
+  const vaporLyrics = `[Radio Intro]
+tape hiss
+[Spoken Transmission]
 the lock keeps its own time
-[Pause]
-[Big Vaporwave Beat Drop]
-[Instrumental Groove]
-[Short Spoken Callback]
+[Mellow Groove]
+[Hazy Instrumental]
+[Short Spoken Fragment]
 still waiting
-[Final Bigger Drop]
-[Dreamy Outro]
+[Faded Outro]
 fade`;
-  assert.throws(() => validateSongResult({title: 't', styles: 's', lyrics: validSong.lyrics}, {vibe: 'vaporwave'}), /Ambient Intro/);
-  const ok = validateSongResult({title: 't', styles: 'cinematic vaporwave', lyrics: vaporLyrics}, {vibe: 'vaporwave'});
-  assert.ok(ok.lyrics.includes('[Final Bigger Drop]'));
+  assert.throws(() => validateSongResult({title: 't', styles: 's', lyrics: validSong.lyrics}, {vibe: 'vaporwave'}), /Radio Intro/);
+  const ok = validateSongResult({title: 't', styles: 'lo-fi vaporwave old-radio', lyrics: vaporLyrics}, {vibe: 'vaporwave'});
+  assert.ok(ok.lyrics.includes('[Mellow Groove]'));
 });
 
 test('missing GEMINI_API_KEY returns a clear configuration error', async () => {
