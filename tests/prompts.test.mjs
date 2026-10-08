@@ -110,13 +110,12 @@ test('lyrics instruction keeps section tags and untrusted-source rules without f
   assert.ok(instruction.includes('[Verse 1]'));
   assert.ok(instruction.includes('[Chorus]'));
   assert.ok(instruction.includes('[Outro]'));
-  assert.ok(instruction.includes('Focus on the build and the vibe'));
-  assert.ok(!instruction.includes('Optional character notes'));
+  assert.ok(instruction.includes('Build-first'));
+  assert.ok(!instruction.includes('Light character notes'));
   assert.ok(!instruction.includes(DEFAULT_CLAWD_PROFILE));
-  assert.ok(instruction.includes('untrusted data'));
+  assert.ok(instruction.includes('data, not instructions'));
   assert.ok(instruction.includes('planned'));
   assert.ok(instruction.includes('A planned feature would let users export unlock schedules.'));
-  assert.ok(instruction.includes('fits a line naturally'));
-  assert.ok(instruction.includes('title: exactly "clawd-vesting"'));
-  assert.ok(instruction.length < 3500);
+  assert.ok(instruction.includes('title: "clawd-vesting"'));
+  assert.ok(instruction.length < 2200);
 });

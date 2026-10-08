@@ -61,7 +61,7 @@ test('request validation accepts bounded payloads and rejects bad enums', () => 
   assert.equal(ok.repo.fullName, 'clawdbotatg/clawd-vesting');
   assert.equal(ok.options.bpm, 74);
   assert.throws(() => validateGenerateRequest({...validBody, options: {...validBody.options, vibe: 'metal'}}), /vibe/);
-  assert.throws(() => validateGenerateRequest({...validBody, evidence: new Array(11).fill(validBody.evidence[0])}), /at most/);
+  assert.throws(() => validateGenerateRequest({...validBody, evidence: new Array(7).fill(validBody.evidence[0])}), /at most/);
 });
 
 test('parseGeminiSong rejects malformed and incomplete lyrics', () => {
@@ -114,7 +114,7 @@ test('temporary rate limits retry and then succeed', async () => {
   let sleeps = 0;
   const fetchImpl = async () => {
     calls += 1;
-    if (calls < 3) {
+    if (calls < 2) {
       return new Response(JSON.stringify({
         error: {message: 'Resource has been exhausted (e.g. check quota).', status: 'RESOURCE_EXHAUSTED'}
       }), {status: 429});
@@ -126,8 +126,8 @@ test('temporary rate limits retry and then succeed', async () => {
     fetchImpl,
     sleep: async () => { sleeps += 1; }
   });
-  assert.equal(calls, 3);
-  assert.equal(sleeps, 2);
+  assert.equal(calls, 2);
+  assert.equal(sleeps, 1);
   assert.equal(result.title, 'clawd-vesting');
 });
 
@@ -152,9 +152,9 @@ test('successful mocked Gemini response returns validated song fields', async ()
   assert.equal(calledHeaders['x-goog-api-key'], 'test-key');
   assert.equal(calledBody.generationConfig.responseMimeType, 'application/json');
   assert.deepEqual(calledBody.generationConfig.responseJsonSchema.required, ['title', 'styles', 'lyrics']);
-  assert.equal(calledBody.generationConfig.thinkingConfig.thinkingLevel, 'low');
-  assert.ok(calledBody.generationConfig.maxOutputTokens >= 4096);
-  assert.ok(calledBody.contents[0].parts[0].text.includes('untrusted data'));
+  assert.equal(calledBody.generationConfig.thinkingConfig.thinkingBudget, 0);
+  assert.ok(calledBody.generationConfig.maxOutputTokens <= 2048);
+  assert.ok(calledBody.contents[0].parts[0].text.includes('data, not instructions'));
   assert.ok(calledBody.contents[0].parts[0].text.includes('planned feature'));
 });
 
@@ -190,7 +190,7 @@ test('high-demand Gemini failures retry and then succeed', async () => {
   let sleeps = 0;
   const fetchImpl = async () => {
     calls += 1;
-    if (calls < 3) {
+    if (calls < 2) {
       return new Response(JSON.stringify({
         error: {
           message: 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.',
@@ -205,8 +205,8 @@ test('high-demand Gemini failures retry and then succeed', async () => {
     fetchImpl,
     sleep: async () => { sleeps += 1; }
   });
-  assert.equal(calls, 3);
-  assert.equal(sleeps, 2);
+  assert.equal(calls, 2);
+  assert.equal(sleeps, 1);
   assert.equal(result.title, 'clawd-vesting');
 });
 

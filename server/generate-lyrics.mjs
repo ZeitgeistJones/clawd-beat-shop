@@ -1,17 +1,18 @@
 import {buildLyricsInstruction, cleanText, THEMES, VIBES, VOICES} from '../src/prompts.js';
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+// 2.5 Flash can turn thinking fully off. 3.8 Flash always thinks (even on "low") and often exceeds Hobby's 60s.
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 export const MAX_BODY_BYTES = 48_000;
-export const MAX_EXCERPTS = 10;
-export const MAX_EXCERPT_LENGTH = 440;
-export const MAX_OUTPUT_CHARS = 12_000;
+export const MAX_EXCERPTS = 6;
+export const MAX_EXCERPT_LENGTH = 280;
+export const MAX_OUTPUT_CHARS = 8_000;
 // Stay under Vercel Hobby maxDuration (60s) with a little buffer for response handling.
-export const GEMINI_TIMEOUT_MS = 55_000;
-// Enough for a song pack; lower than before so Gemini finishes sooner.
-export const MAX_OUTPUT_TOKENS = 4096;
+export const GEMINI_TIMEOUT_MS = 50_000;
+// Sparse song packs are small; a high ceiling lets thinking models burn the whole timeout.
+export const MAX_OUTPUT_TOKENS = 1536;
 // Temporary capacity / rate-limit spikes usually clear quickly — retry a few times inside the timeout.
-export const GEMINI_MAX_ATTEMPTS = 3;
-export const GEMINI_RETRY_DELAYS_MS = [2000, 4000];
+export const GEMINI_MAX_ATTEMPTS = 2;
+export const GEMINI_RETRY_DELAYS_MS = [1500];
 
 const VIBE_KEYS = new Set(Object.keys(VIBES));
 const VOICE_KEYS = new Set(Object.keys(VOICES));
@@ -281,11 +282,24 @@ async function delay(ms, signal, sleep = (wait) => new Promise(resolve => setTim
   }
 }
 
-function buildGeminiBody(instruction, {structured = true} = {}) {
+export function thinkingConfigForModel(model) {
+  const name = String(model || '').toLowerCase();
+  // Gemini 2.5: thinkingBudget 0 disables thinking (Talk Normie-fast path).
+  if (name.includes('2.5') || name.includes('flash-lite')) {
+    return {thinkingBudget: 0};
+  }
+  // Gemini 3.8/3.7 do not support "minimal" — low is the floor, and it is still slow.
+  if (name.includes('3.8') || name.includes('3.7')) {
+    return {thinkingLevel: 'low'};
+  }
+  // Other Gemini 3.x models: minimal is the closest to off.
+  return {thinkingLevel: 'minimal'};
+}
+
+function buildGeminiBody(instruction, model, {structured = true} = {}) {
   const generationConfig = {
     maxOutputTokens: MAX_OUTPUT_TOKENS,
-    // Gemini 3.8 Flash defaults to medium thinking; low keeps lyrics generation fast and within token budget.
-    thinkingConfig: {thinkingLevel: 'low'}
+    thinkingConfig: thinkingConfigForModel(model)
   };
   if (structured) {
     // Prefer responseJsonSchema (JSON Schema) over the older OpenAPI responseSchema subset.
@@ -337,13 +351,13 @@ export async function callGemini({
   let lastBody = '';
 
   for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
-    let response = await postGemini(url, apiKey, buildGeminiBody(instruction, {structured: true}), {fetchImpl, signal: combined});
+    let response = await postGemini(url, apiKey, buildGeminiBody(instruction, selectedModel, {structured: true}), {fetchImpl, signal: combined});
     let bodyText = await response.text();
 
     // If the structured-schema request is rejected, retry once with JSON mime type only.
     if (!response.ok && (response.status === 400 || /invalid.?argument|unknown name|response.?schema|json.?schema/i.test(bodyText))) {
       console.error('generate-lyrics schema request rejected; retrying without responseJsonSchema', response.status);
-      response = await postGemini(url, apiKey, buildGeminiBody(instruction, {structured: false}), {fetchImpl, signal: combined});
+      response = await postGemini(url, apiKey, buildGeminiBody(instruction, selectedModel, {structured: false}), {fetchImpl, signal: combined});
       bodyText = await response.text();
     }
 
