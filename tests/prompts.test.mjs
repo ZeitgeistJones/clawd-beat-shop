@@ -81,6 +81,13 @@ test('style changes with theme, palette, tempo and voice and stays concise', () 
   assert.ok(alt.style.includes('felt piano'));
   assert.ok(alt.lyrics.includes('enable Instrumental'));
   assert.ok(alt.songwriting.includes('no lyrics'));
+  const vapor = makePrompts(repo, {...options, vibe: 'vaporwave', voice: 'spoken'}, []);
+  assert.ok(vapor.style.includes('Cinematic vaporwave'));
+  assert.ok(vapor.style.includes('spoken-word monologue'));
+  assert.ok(vapor.songwriting.includes('[Ambient Intro]'));
+  assert.ok(vapor.songwriting.includes('[Big Vaporwave Beat Drop]'));
+  assert.ok(vapor.songwriting.includes('[Dreamy Outro]'));
+  assert.ok(vapor.lyrics.includes('Vaporwave'));
 });
 
 test('source type explicitly marks pasted README claims and commit uncertainty', () => {
@@ -118,4 +125,14 @@ test('lyrics instruction keeps section tags and untrusted-source rules without f
   assert.ok(instruction.includes('A planned feature would let users export unlock schedules.'));
   assert.ok(instruction.includes('title: "clawd-vesting"'));
   assert.ok(instruction.length < 2200);
+
+  const vaporInstruction = buildLyricsInstruction(
+    repo,
+    {...options, vibe: 'vaporwave', voice: 'spoken', profile: ''},
+    [{kind: 'README claim', text: 'A planned feature would let users export unlock schedules.', url: repo.url}]
+  );
+  assert.ok(vaporInstruction.includes('Cinematic vaporwave'));
+  assert.ok(vaporInstruction.includes('[Original Spoken Monologue]'));
+  assert.ok(vaporInstruction.includes('[Final Bigger Drop]'));
+  assert.ok(vaporInstruction.includes('do not quote or imitate any real movie'));
 });

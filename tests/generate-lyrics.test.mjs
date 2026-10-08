@@ -6,7 +6,8 @@ import {
   handleGenerateLyricsRequest,
   isRetryableGeminiFailure,
   parseGeminiSong,
-  validateGenerateRequest
+  validateGenerateRequest,
+  validateSongResult
 } from '../server/generate-lyrics.mjs';
 
 const validBody = {
@@ -73,6 +74,24 @@ test('parseGeminiSong rejects malformed and incomplete lyrics', () => {
     candidates: [{content: {parts: [{text: JSON.stringify(validSong)}]}}]
   });
   assert.equal(song.title, validSong.title);
+});
+
+test('vaporwave palette requires its cinematic section tags', () => {
+  const vaporLyrics = `[Ambient Intro]
+hiss
+[Original Spoken Monologue]
+the lock keeps its own time
+[Pause]
+[Big Vaporwave Beat Drop]
+[Instrumental Groove]
+[Short Spoken Callback]
+still waiting
+[Final Bigger Drop]
+[Dreamy Outro]
+fade`;
+  assert.throws(() => validateSongResult({title: 't', styles: 's', lyrics: validSong.lyrics}, {vibe: 'vaporwave'}), /Ambient Intro/);
+  const ok = validateSongResult({title: 't', styles: 'cinematic vaporwave', lyrics: vaporLyrics}, {vibe: 'vaporwave'});
+  assert.ok(ok.lyrics.includes('[Final Bigger Drop]'));
 });
 
 test('missing GEMINI_API_KEY returns a clear configuration error', async () => {

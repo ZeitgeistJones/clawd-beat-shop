@@ -1,4 +1,4 @@
-import {buildLyricsInstruction, cleanText, THEMES, VIBES, VOICES} from '../src/prompts.js';
+import {buildLyricsInstruction, cleanText, requiredLyricTags, THEMES, VIBES, VOICES} from '../src/prompts.js';
 
 // New Gemini API keys cannot use 2.5 Flash — Google requires gemini-3.8-flash.
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
@@ -141,7 +141,7 @@ export function validateGenerateRequest(body) {
   return {repo, options, evidence};
 }
 
-export function parseGeminiSong(payload) {
+export function parseGeminiSong(payload, {vibe} = {}) {
   if (!payload || typeof payload !== 'object') {
     throw new LyricsRequestError('Gemini returned an empty response.', 502, 'bad_model_output');
   }
@@ -167,10 +167,10 @@ export function parseGeminiSong(payload) {
   } catch {
     throw new LyricsRequestError('Gemini returned malformed JSON.', 502, 'bad_model_output');
   }
-  return validateSongResult(parsed);
+  return validateSongResult(parsed, {vibe});
 }
 
-export function validateSongResult(value) {
+export function validateSongResult(value, {vibe} = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new LyricsRequestError('Song result must be an object.', 502, 'bad_model_output');
   }
@@ -182,11 +182,10 @@ export function validateSongResult(value) {
     }
   };
   const title = read('title', 160);
-  const styles = read('styles', 1200);
+  const styles = read('styles', 1600);
   const lyrics = read('lyrics', 8000);
-  // Require the main sections once. A second [Chorus] is preferred in the prompt but not mandatory —
-  // sparse lo-fi takes often omit the repeat and were failing the whole request.
-  for (const tag of ['[Intro]', '[Verse 1]', '[Chorus]', '[Verse 2]', '[Outro]']) {
+  // Lo-fi and vaporwave use different section maps; require the tags for the active palette.
+  for (const tag of requiredLyricTags(vibe)) {
     if (!lyrics.includes(tag)) {
       throw new LyricsRequestError(`Generated lyrics are missing ${tag}.`, 502, 'bad_model_output');
     }
@@ -349,6 +348,7 @@ export async function callGemini({
   instruction,
   apiKey,
   model,
+  vibe,
   fetchImpl = globalThis.fetch.bind(globalThis),
   signal,
   sleep
@@ -380,7 +380,7 @@ export async function callGemini({
       } catch {
         throw new LyricsRequestError('Gemini returned a non-JSON response.', 502, 'bad_model_output');
       }
-      return parseGeminiSong(payload);
+      return parseGeminiSong(payload, {vibe});
     }
 
     lastStatus = response.status;
@@ -412,6 +412,7 @@ export async function generateLyricsFromRequest(body, {
     instruction,
     apiKey: typeof env.GEMINI_API_KEY === 'string' ? env.GEMINI_API_KEY.trim() : '',
     model: (typeof env.GEMINI_MODEL === 'string' && env.GEMINI_MODEL.trim()) || DEFAULT_GEMINI_MODEL,
+    vibe: options.vibe,
     fetchImpl,
     signal,
     sleep
