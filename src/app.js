@@ -220,7 +220,7 @@ $('browse-button').addEventListener('click',async()=>{
   try {
     const repos=await listClawdRepos();$('catalog').replaceChildren(new Option('Choose a repo…',''));
     for(const repo of repos) $('catalog').append(new Option(repo.name,repo.full_name));
-    $('catalog').hidden=false;$('catalog-label').hidden=false;status(`Listed ${repos.length} repos, up to the most recent 100. You can paste any other repo link.`);
+    $('catalog').hidden=false;$('catalog-label').hidden=false;status(`Listed ${repos.length} recently updated repos. You can paste any other repo link.`);
   }catch(error){status(error.message,true);}finally{$('browse-button').disabled=false;}
 });
 $('catalog').addEventListener('change',()=>{if($('catalog').value){$('repo-url').value=$('catalog').value;$('repo-form').requestSubmit();}});

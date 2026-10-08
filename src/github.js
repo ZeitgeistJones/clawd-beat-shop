@@ -55,6 +55,20 @@ export async function loadRepo(input, {fetchImpl = globalThis.fetch.bind(globalT
       url:`${repo.url}/commit/${encodeURIComponent(c.sha)}`})), warnings, source:'github', loadedAt:new Date().toISOString()};
 }
 
+// Same approach as Talk Normie 2 Me: GitHub caps each page at 100, so keep paging.
+export const CLAWD_REPOS_PAGE_SIZE = 100;
+export const CLAWD_REPOS_MAX_PAGES = 20;
+
 export async function listClawdRepos({fetchImpl = globalThis.fetch.bind(globalThis), signal} = {}) {
-  return request('/users/clawdbotatg/repos?sort=pushed&per_page=100', {fetchImpl,signal});
+  const all = [];
+  for (let page = 1; page <= CLAWD_REPOS_MAX_PAGES; page += 1) {
+    const batch = await request(
+      `/users/clawdbotatg/repos?sort=pushed&per_page=${CLAWD_REPOS_PAGE_SIZE}&page=${page}`,
+      {fetchImpl, signal}
+    );
+    if (!Array.isArray(batch) || !batch.length) break;
+    all.push(...batch);
+    if (batch.length < CLAWD_REPOS_PAGE_SIZE) break;
+  }
+  return all;
 }

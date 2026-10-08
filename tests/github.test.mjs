@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseRepo,loadRepo} from '../src/github.js';
+import {parseRepo,loadRepo,listClawdRepos} from '../src/github.js';
 test('repository parser accepts home URLs and rejects alternate hosts, paths and credentials',()=>{
   assert.equal(parseRepo(' https://github.com/clawdbotatg/clawd-vesting.git/ ').fullName,'clawdbotatg/clawd-vesting');
   assert.equal(parseRepo('clawdbotatg/liquidity-vesting').name,'liquidity-vesting');
@@ -43,4 +43,20 @@ test('canceling stops load rather than producing a partial pack',async()=>{
     return Response.json({default_branch:'main'});
   };
   await assert.rejects(loadRepo('clawdbotatg/test',{fetchImpl,signal:controller.signal}),/Aborted/);
+});
+test('browse lists Clawd repos across GitHub pages, not only the first 100',async()=>{
+  const calls=[];
+  const fetchImpl=async url=>{
+    calls.push(url);
+    const page=Number(new URL(url).searchParams.get('page') || '1');
+    if(page===1)return Response.json(Array.from({length:100},(_,i)=>({name:`repo-${i}`,full_name:`clawdbotatg/repo-${i}`})));
+    if(page===2)return Response.json(Array.from({length:3},(_,i)=>({name:`extra-${i}`,full_name:`clawdbotatg/extra-${i}`})));
+    return Response.json([]);
+  };
+  const repos=await listClawdRepos({fetchImpl});
+  assert.equal(repos.length,103);
+  assert.equal(calls.length,2);
+  assert.ok(calls[0].includes('page=1'));
+  assert.ok(calls[1].includes('page=2'));
+  assert.equal(repos.at(-1).full_name,'clawdbotatg/extra-2');
 });

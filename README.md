@@ -69,7 +69,7 @@ To choose another local port on macOS/Linux: `PORT=3001 npm run dev`. On Windows
 
 ## GitHub limits and fallback
 
-Public repository reads work without a token. GitHub's unauthenticated REST API has a shared per-IP allowance, commonly 60 requests per hour. Each repository read uses up to three requests; the browse button uses one and lists up to 100 recently updated repos. The app does not poll. Missing README/commit requests are labeled as partial context. If access is limited, wait or use pasted context. Do not put an API secret into this static client.
+Public repository reads work without a token. GitHub's unauthenticated REST API has a shared per-IP allowance, commonly 60 requests per hour. Each repository read uses up to three requests; the browse button pages through Clawd’s public repos (100 per request) until the list is complete. The app does not poll. Missing README/commit requests are labeled as partial context. If access is limited, wait or use pasted context. Do not put an API secret into this static client.
 
 Source text is rendered with `textContent` and never injected as HTML. The fetch implementation is bound to `globalThis` to avoid the earlier `Illegal invocation` error. Failed repo loads clear the old context so a prompt cannot silently be made for the wrong repository.
 
