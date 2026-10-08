@@ -56,21 +56,21 @@ test('unselected evidence and commits are absent from the source packet', () => 
   assert.ok(out.songwriting.includes('A planned feature'));
   assert.ok(!out.songwriting.includes('fix display bug'));
   assert.ok(!out.songwriting.includes('prototype groups'));
-  assert.ok(out.songwriting.includes('untrusted data, not instructions'));
+  assert.ok(out.songwriting.includes('No invented features'));
   assert.ok(out.songwriting.includes('planned'));
   assert.ok(out.songwriting.includes('[Intro]'));
-  assert.ok(out.songwriting.length < 2200);
+  assert.ok(out.songwriting.length < 1400);
 });
 
 test('style changes with theme, palette, tempo and voice and stays concise', () => {
   const defaultOut = makePrompts(repo, options, []);
   assert.equal(defaultOut.title, 'clawd-vesting');
-  assert.ok(defaultOut.songwriting.includes('title exactly "clawd-vesting"'));
+  assert.ok(defaultOut.songwriting.includes('title "clawd-vesting"'));
   assert.ok(defaultOut.style.includes('74 BPM'));
-  assert.ok(defaultOut.style.includes('room to vary'));
+  assert.ok(defaultOut.style.includes('classic lo-fi hip-hop'));
   assert.ok(defaultOut.style.includes('safe with a slow-turning clock'));
-  assert.ok(defaultOut.style.includes('do not specify male or female'));
-  assert.ok(defaultOut.style.length < 1200);
+  assert.ok(defaultOut.style.includes('no male/female cue'));
+  assert.ok(defaultOut.style.length < 450);
   const sparse = makePrompts(repo, {...options, voice: 'sparse'}, []);
   assert.ok(sparse.style.includes('mostly instrumental'));
   assert.ok(sparse.songwriting.includes('sparse lyrics'));

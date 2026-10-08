@@ -13,7 +13,7 @@
   <main>
     <header class="topbar"><a class="brand" href="./">▾ CLAWD BEAT LAB</a><span class="tag">FROM REPO TO RHYTHM</span></header>
     <section class="hero">
-      <div><p class="eyebrow">A LITTLE CODE. A LITTLE SOUL.</p><h1>Every build<br>has a <em>beat.</em></h1><p class="intro">Turn Clawd’s GitHub projects into lo-fi hip-hop ideas. Real build details, warm drums, and a story worth putting on repeat.</p><div class="pills"><span>Public repos</span><span>Suno Prompt mode</span><span>Generate Lyrics</span></div></div>
+      <div><p class="eyebrow">A LITTLE CODE. A LITTLE SOUL.</p><h1>Every build<br>has a <em>beat.</em></h1><p class="intro">Turn Clawd’s GitHub projects into lo-fi hip-hop ideas. Real build details, warm drums, and a story worth putting on repeat.</p><div class="pills"><span>Public repos</span><span>Generate Lyrics</span><span>Suno Prompt</span></div></div>
       <div class="record-scene" aria-hidden="true"><div class="paper-label">WORKSHOP SESSIONS<br><b>VOL. 01</b></div><div class="record"><div class="record-label"><svg viewBox="0 0 100 100"><path d="M17 20h66L50 82z" fill="#f4dec0"/><path d="m31 38 13 4m25-4-13 4" stroke="#3b3027" stroke-width="5" stroke-linecap="round"/><path d="M42 54q8 7 16 0" fill="none" stroke="#3b3027" stroke-width="3"/></svg><span>CLAWD FM</span></div></div><span class="record-note">made for late nights<br>& little breakthroughs</span></div>
     </section>
     <div class="workspace">
@@ -31,31 +31,31 @@
         <div class="panel-heading"><span class="step">02</span><div><p class="eyebrow">THE FEELING</p><h2 id="sound-title">Set the mood</h2></div></div>
         <fieldset class="mode-toggle">
           <legend>Mode</legend>
-          <label class="mode-option"><input type="radio" name="mode" value="prompt" checked> Suno Prompt</label>
-          <label class="mode-option"><input type="radio" name="mode" value="lyrics"> Generate Lyrics</label>
+          <label class="mode-option"><input type="radio" name="mode" value="lyrics" checked> Generate Lyrics</label>
+          <label class="mode-option"><input type="radio" name="mode" value="prompt"> Suno Prompt</label>
         </fieldset>
-        <p id="mode-help" class="help">Builds a local prompt pack. No API key needed.</p>
+        <p id="mode-help" class="help">Calls the server-side Gemini endpoint. GEMINI_API_KEY stays on the server.</p>
         <label for="vibe">Beat palette</label><select id="vibe"><option value="open" selected>Open · let Suno mix classic lo-fi sounds</option><option value="dusty">Crunchy drums · warm keys · vinyl crackle</option><option value="night">Soft drums · quiet piano · mellow guitar</option><option value="sunny">Bouncy groove · bright keys · light guitar</option></select>
         <p class="help">Open keeps it flexible. The others nudge the instruments, not the song topic.</p>
         <div class="section-row"><label for="bpm">Tempo</label><output id="bpm-value" for="bpm">74 BPM</output></div><input id="bpm" type="range" min="60" max="95" value="74"><div class="range-labels"><span>Slow & spacious</span><span>Head nodder</span></div>
         <label for="voice">Vocals</label><select id="voice"><option value="sparse" selected>Sparse · mostly instrumental, few lines</option><option value="instrumental">Instrumental only</option><option value="soft">Soft vocals · no gender cue</option><option value="spoken">Spoken word · no gender cue</option></select>
         <label for="theme">Story angle</label><select id="theme"><option value="auto">Match the repository</option><option value="workshop">Late-night workshop</option><option value="vesting">Time locks & patience</option><option value="liquidity">Pools & flowing water</option><option value="chronicle">History & receipts</option><option value="wallet">Wallets & access</option><option value="research">Research & discovery</option><option value="garden">Community & growing things</option></select>
         <label for="direction">Your creative direction <span class="optional">optional</span></label><textarea id="direction" rows="4" maxlength="1200" placeholder="A relaxed song about Clawd building while everyone sleeps. A little funny, with a hook you can hum."></textarea>
-        <div id="profile-section" hidden>
+        <div id="profile-section">
           <label for="profile">Clawd background profile <span class="optional">optional</span></label>
           <textarea id="profile" rows="4" maxlength="1600" placeholder="Leave blank unless you want extra character notes. Example: curious builder with a dry sense of humor."></textarea>
           <p class="help">Blank by default so songs stay about the build. Fill in only if you want light character color.</p>
         </div>
-        <button id="generate-button" class="primary" type="button" disabled>Make the prompt pack ✦</button>
+        <button id="generate-button" class="primary" type="button" disabled>Generate lyrics ✦</button>
         <p id="generate-status" class="status" role="status" aria-live="polite"></p>
-        <p id="generate-help" class="help">Creates prompts, not audio. Vocal tracks include a brief for a writing model to turn into finished lyrics.</p>
+        <p id="generate-help" class="help">Produces a title, Styles prompt, and complete lyrics. Review before pasting into Suno.</p>
       </section>
     </div>
     <section id="prompt-outputs" class="outputs" aria-labelledby="prompt-output-title" hidden>
       <div class="output-heading"><div><p class="eyebrow">03 · READY FOR YOUR SESSION</p><h2 id="prompt-output-title">Your prompt pack</h2><p id="song-title"></p></div><button id="download-button" class="secondary" type="button">Download pack ↓</button></div>
       <p id="output-status" class="status" role="status" aria-live="polite"></p>
-      <div class="output-grid"><article class="panel"><div class="section-row"><h3>Suno Styles</h3><button data-copy="styles-output" class="text-button" type="button">Copy</button></div><p class="help">Paste this into Styles in Suno’s Custom mode.</p><textarea id="styles-output" rows="8" readonly aria-label="Suno Styles prompt"></textarea><p id="style-count" class="help"></p><p id="lyrics-workflow" class="workflow"></p></article>
-      <article class="panel"><div class="section-row"><h3>Songwriting brief</h3><button data-copy="brief-output" class="text-button" type="button">Copy</button></div><p class="help">Short brief for a writing model. Or switch to Generate Lyrics to skip this step.</p><textarea id="brief-output" rows="16" readonly aria-label="Grounded songwriting brief"></textarea></article></div>
+      <div class="output-grid"><article class="panel"><div class="section-row"><h3>Suno Styles</h3><button data-copy="styles-output" class="text-button" type="button">Copy</button></div><p class="help">Paste this into Styles in Suno’s Custom mode.</p><textarea id="styles-output" rows="4" readonly aria-label="Suno Styles prompt"></textarea><p id="style-count" class="help"></p><p id="lyrics-workflow" class="workflow"></p></article>
+      <article class="panel"><div class="section-row"><h3>Songwriting brief</h3><button data-copy="brief-output" class="text-button" type="button">Copy</button></div><p class="help">Tiny brief for a writing model. Or stay on Generate Lyrics to skip this step.</p><textarea id="brief-output" rows="10" readonly aria-label="Grounded songwriting brief"></textarea></article></div>
       <details><summary>Source packet</summary><p class="help">Only the excerpts you selected are sent into the brief. No code audit or deployment verification is performed.</p><pre id="packet-output"></pre></details>
     </section>
     <section id="lyrics-outputs" class="outputs" aria-labelledby="lyrics-output-title" hidden>
@@ -69,7 +69,7 @@
       <p id="lyrics-status" class="status" role="status" aria-live="polite"></p>
       <div class="lyrics-grid">
         <article class="panel"><div class="section-row"><h3>Song title</h3><button data-copy="title-output" class="text-button" type="button">Copy</button></div><textarea id="title-output" rows="2" aria-label="Song title"></textarea></article>
-        <article class="panel"><div class="section-row"><h3>Suno Styles</h3><button data-copy="lyrics-styles-output" class="text-button" type="button">Copy</button></div><p class="help">Paste into Styles in Suno Custom mode.</p><textarea id="lyrics-styles-output" rows="8" aria-label="Generated Suno Styles"></textarea></article>
+        <article class="panel"><div class="section-row"><h3>Suno Styles</h3><button data-copy="lyrics-styles-output" class="text-button" type="button">Copy</button></div><p class="help">Paste into Styles in Suno Custom mode.</p><textarea id="lyrics-styles-output" rows="4" aria-label="Generated Suno Styles"></textarea></article>
         <article class="panel lyrics-panel"><div class="section-row"><h3>Lyrics</h3><button data-copy="lyrics-output" class="text-button" type="button">Copy</button></div><p class="help">Review and edit, then paste into Suno Lyrics.</p><textarea id="lyrics-output" rows="22" aria-label="Generated lyrics"></textarea></article>
       </div>
     </section>

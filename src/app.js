@@ -14,7 +14,7 @@ function generateStatus(message, error=false) {
   $('generate-status').classList.toggle('error', error);
 }
 function currentMode() {
-  return document.querySelector('input[name="mode"]:checked')?.value || 'prompt';
+  return document.querySelector('input[name="mode"]:checked')?.value || 'lyrics';
 }
 function resetOutput() {
   if (generating) return;
